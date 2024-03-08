@@ -15,13 +15,20 @@ class NodeAST {
   }
 };
 
-class RootAST {
-   
+class RootAST : public NodeAST {
+  std::vector<std::unique_ptr<ExternalDecls>> _extern_units;    
+
+  public:
+  insertExternalUnit(std::unique_ptr<ExternalDecls> &unit) {
+    _extern_units.push_back(std::move(unit));
+  }
+};
+
+class ExternalDecls : public NodeAST {
 };
 
 //Base class for all exressions
 class ExprAST : public NodeAST {
-    
 };
 
 // Base class for all statements
@@ -104,6 +111,9 @@ class BlockItemListAST : public StmtAST {
 
 class DirectDeclaratorAST : public NodeAST { 
   PointerAst _pointer; // to write
+
+  public:
+  void updatePointer(std::unique_ptr<PointerAst> &ptrast) { _pointer = ptrast; }
 };
 
 class FunctionDeclaratorAST : public DirectDeclaratorAST {
@@ -185,8 +195,14 @@ class DeclarationAST : public NodeAST {
 
 };
 
-class FunctionDefinitionAST : public  NodeAST {
-  
+class FunctionDefinitionAST : public ExternalDecls {
+  std::unique_ptr<DeclSpecifierAST> _decl_specs
+  std::unique_ptr<DirectDeclaratorAST> _declarators;
+  std::unique_ptr<BlockItemListAST> _compound_stmts;
+
+  public:
+  FunctionDefinitionAST(std::unique_ptr<DeclSpecifierAST> &declspecs, std::unique_ptr<DirectDeclaratorAST> &decls, std::unique_ptr<BlockItemListAST> &stmts) :
+    _decl_specs(std::move(declspecs)), _declarators(std::move(decls)), _compound_stmts(std::move(stmts)) {  }
 };
 
 
@@ -228,8 +244,11 @@ class DeclSpecifierAST : public NodeAST {
   DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier, std::unique_ptr<DeclSpecifierAST> &next) :
     _cur_specifier(std::move(cur_specifier)), _next(std::move(next)) {  }
 
+  DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier) : _cur_specifier ( std::move(cur_specifier) ) {  }
+
   void print(int indent) {
     _cur_specifier->print(indent);
     if (_next != nullptr) _next->print(indent);
   }
+
 };

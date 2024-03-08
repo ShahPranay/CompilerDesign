@@ -22,7 +22,9 @@ std::unique_ptr<RootAST> AST_root;
   std::unique_ptr<BlockItemListAST> block_list;
   std::unique_ptr<ParamListAST> param_list;
   std::unique_ptr<ParamDeclAST> param_decl;
+  std::unique_ptr<DirectDeclaratorAST> direct_decl;
   std::unique_ptr<SpecifierAST> specifier;
+  std::unique_ptr<DeclSpecifierAST> decl_specs;
   int int_token;
   double double_token;
   std::unique_ptr<std::string> str_token;
@@ -57,7 +59,9 @@ std::unique_ptr<RootAST> AST_root;
 
 %type <param_list> parameter_type_list parameter_list
 %type <param_decl> parameter_declaration
-%type <specifier> type_specifier declaration_specifiers type_qualifier
+%type <specifier> type_specifier type_qualifier
+%type <direct_decl> direct_declarator declarator
+%type <decl_specs> declaration_specifiers;
 
 %start translation_unit
 
@@ -242,15 +246,15 @@ declaration
 
 declaration_specifiers
   : storage_class_specifier declaration_specifiers
-  | storage_class_specifier
+  | storage_class_specifier { $$ = std::make_unique<DeclSpecifierAST>($1); } 
   | type_specifier declaration_specifiers { $$ = std::make_unique<DeclSpecifierAST>($1, $2); }
-  | type_specifier
+  | type_specifier { $$ = std::make_unique<DeclSpecifierAST>($1); }
   | type_qualifier declaration_specifiers { $$ = std::make_unique<DeclSpecifierAST>($1, $2); }
-  | type_qualifier
+  | type_qualifier { $$ = std::make_unique<DeclSpecifierAST>($1); }
   | function_specifier declaration_specifiers
-  | function_specifier
+  | function_specifier { $$ = std::make_unique<DeclSpecifierAST>($1); }
   | alignment_specifier declaration_specifiers
-  | alignment_specifier
+  | alignment_specifier { $$ = std::make_unique<DeclSpecifierAST>($1); }
   ;
 
 init_declarator_list
@@ -371,7 +375,7 @@ alignment_specifier
   ;
 
 declarator
-  : pointer direct_declarator
+  : pointer direct_declarator { $$ = $2; $$->updatePointer($1); }
   | direct_declarator
   ;
 
@@ -550,18 +554,18 @@ jump_statement
   ;
 
 translation_unit
-  : external_declaration
-  | translation_unit external_declaration
+  : external_declaration { AST_root = std::make_unique<RootAST>(); AST_root->insertExternalUnit($1); }
+  | translation_unit external_declaration { AST_root->insertExternalUnit($1); }
   ;
 
 external_declaration
-  : function_definition
+  : function_definition 
   | declaration
   ;
 
 function_definition
   : declaration_specifiers declarator declaration_list compound_statement
-  | declaration_specifiers declarator compound_statement
+  | declaration_specifiers declarator compound_statement { $$ = std::make_unique<FunctionDeclaratorAST>($1, $2, $3); }
   ;
 
 declaration_list
