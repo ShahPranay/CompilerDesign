@@ -1,6 +1,7 @@
 %{
 #include <cstdio>
 #include <iostream>
+#include "AstNodes.h"
 using namespace std;
 
 // stuff from flex that bison needs to know about:
@@ -10,7 +11,19 @@ extern "C" FILE *yyin;
  
 void yyerror(const char *s);
 %}
-%token	IDENTIFIER I_CONSTANT F_CONSTANT STRING_LITERAL FUNC_NAME SIZEOF
+
+%union{
+  std::unique_ptr<NodeAST> node;
+  std::unique_ptr<StmtAST> statement;
+  std::unique_ptr<ExprAST> expression;
+  std::unique_ptr<IdentifierAST> identifier;
+  std::unique_ptr<BlockItemListAST> block_list;
+  int int_token;
+  double double_token;
+  std::unique_ptr<std::string> str_token;
+}
+
+%token	<str_token> IDENTIFIER I_CONSTANT F_CONSTANT STRING_LITERAL FUNC_NAME SIZEOF
 %token	PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token	AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token	SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
@@ -27,11 +40,21 @@ void yyerror(const char *s);
 
 %token	ALIGNAS ALIGNOF ATOMIC GENERIC NORETURN STATIC_ASSERT THREAD_LOCAL
 
+
+%type <statement> statement expression_statement block_item
+%type <block_list> block_item_list compound_statement
+%type <expression> cast_expression unary_expression postfix_expression primary_expression
+%type <expression> multiplicative_expression additive_expression shift_expression relational_expression 
+%type <expression> equality_expression and_expression exclusive_or_expression inclusive_or_expression constant_expression
+%type <expression> logical_and_expression logical_or_expression conditional_expression assignment_expression expression 
+%type <expression> constant string
+
 %start translation_unit
 %%
 
+
 primary_expression
-	: IDENTIFIER
+	: IDENTIFIER { $$ = std::make_unique<IdentifierAST>(*$1); }
 	| constant
 	| string
 	| '(' expression ')'
@@ -39,8 +62,8 @@ primary_expression
 	;
 
 constant
-	: I_CONSTANT		/* includes character_constant */
-	| F_CONSTANT
+	: I_CONSTANT	{ $$ = std::make_unique<IntegerExprAST>(atoi($1->c_str())); }	/* includes character_constant */
+	| F_CONSTANT  { $$ = std::make_unique<DoubleExprAST>(atof($1->c_str())); }
 	| ENUMERATION_CONSTANT	/* after it has been defined as such */
 	;
 
@@ -111,60 +134,60 @@ cast_expression
 
 multiplicative_expression
 	: cast_expression
-	| multiplicative_expression '*' cast_expression
-	| multiplicative_expression '/' cast_expression
-	| multiplicative_expression '%' cast_expression
+	| multiplicative_expression '*' cast_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+	| multiplicative_expression '/' cast_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+	| multiplicative_expression '%' cast_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
 	;
 
 additive_expression
 	: multiplicative_expression
-	| additive_expression '+' multiplicative_expression
-	| additive_expression '-' multiplicative_expression
+	| additive_expression '+' multiplicative_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+	| additive_expression '-' multiplicative_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
 	;
 
 shift_expression
 	: additive_expression
-	| shift_expression LEFT_OP additive_expression
-	| shift_expression RIGHT_OP additive_expression
+	| shift_expression LEFT_OP additive_expression { $$ = std::make_unique<BinaryExprAST>("<<", $1, $3); }
+	| shift_expression RIGHT_OP additive_expression { $$ = std::make_unique<BinaryExprAST>(">>", $1, $3); }
 	;
 
 relational_expression
 	: shift_expression
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
-	| relational_expression LE_OP shift_expression
-	| relational_expression GE_OP shift_expression
+	| relational_expression '<' shift_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+	| relational_expression '>' shift_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+	| relational_expression LE_OP shift_expression { $$ = std::make_unique<BinaryExprAST>("<=", $1, $3); }
+	| relational_expression GE_OP shift_expression { $$ = std::make_unique<BinaryExprAST>(">=", $1, $3); }
 	;
 
 equality_expression
 	: relational_expression
-	| equality_expression EQ_OP relational_expression
-	| equality_expression NE_OP relational_expression
+	| equality_expression EQ_OP relational_expression { $$ = std::make_unique<BinaryExprAST>("==", $1, $3); }
+	| equality_expression NE_OP relational_expression { $$ = std::make_unique<BinaryExprAST>("!=", $1, $3); }
 	;
 
 and_expression
 	: equality_expression
-	| and_expression '&' equality_expression
+	| and_expression '&' equality_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
 	;
 
 exclusive_or_expression
 	: and_expression
-	| exclusive_or_expression '^' and_expression
+	| exclusive_or_expression '^' and_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
 	;
 
 inclusive_or_expression
 	: exclusive_or_expression
-	| inclusive_or_expression '|' exclusive_or_expression
+	| inclusive_or_expression '|' exclusive_or_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
 	;
 
 logical_and_expression
 	: inclusive_or_expression
-	| logical_and_expression AND_OP inclusive_or_expression
+	| logical_and_expression AND_OP inclusive_or_expression { $$ = std::make_unique<BinaryExprAST>("&&", $1, $3); }
 	;
 
 logical_or_expression
 	: logical_and_expression
-	| logical_or_expression OR_OP logical_and_expression
+	| logical_or_expression OR_OP logical_and_expression { $$ = std::make_unique<BinaryExprAST>("||", $1, $3); }
 	;
 
 conditional_expression
@@ -353,7 +376,7 @@ direct_declarator
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'
 	| direct_declarator '[' type_qualifier_list ']'
 	| direct_declarator '[' assignment_expression ']'
-	| direct_declarator '(' parameter_type_list ')'
+	| direct_declarator '(' parameter_type_list ')' {  }
 	| direct_declarator '(' ')'
 	| direct_declarator '(' identifier_list ')'
 	;
@@ -474,13 +497,13 @@ labeled_statement
 	;
 
 compound_statement
-	: '{' '}'
-	| '{'  block_item_list '}'
+	: '{' '}' {$$ = std::make_unique<BlockItemListAST>();}
+	| '{'  block_item_list '}' { $$ = $2; }
 	;
 
 block_item_list
-	: block_item
-	| block_item_list block_item
+	: block_item { $$ = std::make_unique<BlockItemListAST>(); $$->insertStatement($1); }
+	| block_item_list block_item { $1->insertStatement($2); $$ = $1; }
 	;
 
 block_item
@@ -489,8 +512,8 @@ block_item
 	;
 
 expression_statement
-	: ';'
-	| expression ';'
+	: ';' {$$ = std::make_unique<ExprStmtAST>();}
+	| expression ';' { $$ = std::make_unique<ExprStmtAST>($1); }
 	;
 
 selection_statement
