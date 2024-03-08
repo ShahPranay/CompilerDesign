@@ -25,6 +25,7 @@ std::unique_ptr<RootAST> AST_root;
   std::unique_ptr<DirectDeclaratorAST> direct_decl;
   std::unique_ptr<SpecifierAST> specifier;
   std::unique_ptr<DeclSpecifierAST> decl_specs;
+  std::unique_ptr<ExternalDecls> external_decls;
   int int_token;
   double double_token;
   std::unique_ptr<std::string> str_token;
@@ -59,9 +60,10 @@ std::unique_ptr<RootAST> AST_root;
 
 %type <param_list> parameter_type_list parameter_list
 %type <param_decl> parameter_declaration
-%type <specifier> type_specifier type_qualifier
+%type <specifier> type_specifier type_qualifier storage_class_specifier function_specifier alignment_specifier
 %type <direct_decl> direct_declarator declarator
 %type <decl_specs> declaration_specifiers;
+%type <external_decls> function_definition external_declaration
 
 %start translation_unit
 
@@ -149,15 +151,15 @@ cast_expression
 
 multiplicative_expression
   : cast_expression
-  | multiplicative_expression '*' cast_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
-  | multiplicative_expression '/' cast_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
-  | multiplicative_expression '%' cast_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+  | multiplicative_expression '*' cast_expression { $$ = std::make_unique<BinaryExprAST>("*", $1, $3); }
+  | multiplicative_expression '/' cast_expression { $$ = std::make_unique<BinaryExprAST>("/", $1, $3); }
+  | multiplicative_expression '%' cast_expression { $$ = std::make_unique<BinaryExprAST>("%", $1, $3); }
   ;
 
 additive_expression
   : multiplicative_expression
-  | additive_expression '+' multiplicative_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
-  | additive_expression '-' multiplicative_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+  | additive_expression '+' multiplicative_expression { $$ = std::make_unique<BinaryExprAST>("+", $1, $3); }
+  | additive_expression '-' multiplicative_expression { $$ = std::make_unique<BinaryExprAST>("-", $1, $3); }
   ;
 
 shift_expression
@@ -168,8 +170,8 @@ shift_expression
 
 relational_expression
   : shift_expression
-  | relational_expression '<' shift_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
-  | relational_expression '>' shift_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+  | relational_expression '<' shift_expression { $$ = std::make_unique<BinaryExprAST>("<", $1, $3); }
+  | relational_expression '>' shift_expression { $$ = std::make_unique<BinaryExprAST>(">", $1, $3); }
   | relational_expression LE_OP shift_expression { $$ = std::make_unique<BinaryExprAST>("<=", $1, $3); }
   | relational_expression GE_OP shift_expression { $$ = std::make_unique<BinaryExprAST>(">=", $1, $3); }
   ;
@@ -182,17 +184,17 @@ equality_expression
 
 and_expression
   : equality_expression
-  | and_expression '&' equality_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+  | and_expression '&' equality_expression { $$ = std::make_unique<BinaryExprAST>("&", $1, $3); }
   ;
 
 exclusive_or_expression
   : and_expression
-  | exclusive_or_expression '^' and_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+  | exclusive_or_expression '^' and_expression { $$ = std::make_unique<BinaryExprAST>("^", $1, $3); }
   ;
 
 inclusive_or_expression
   : exclusive_or_expression
-  | inclusive_or_expression '|' exclusive_or_expression { $$ = std::make_unique<BinaryExprAST>($2, $1, $3); }
+  | inclusive_or_expression '|' exclusive_or_expression { $$ = std::make_unique<BinaryExprAST>("|", $1, $3); }
   ;
 
 logical_and_expression
@@ -375,7 +377,7 @@ alignment_specifier
   ;
 
 declarator
-  : pointer direct_declarator { $$ = $2; $$->updatePointer($1); }
+  : pointer direct_declarator { /*$$ = $2; $$->updatePointer($1);*/ }
   | direct_declarator
   ;
 
@@ -555,7 +557,7 @@ jump_statement
 
 translation_unit
   : external_declaration { AST_root = std::make_unique<RootAST>(); AST_root->insertExternalUnit($1); }
-  | translation_unit external_declaration { AST_root->insertExternalUnit($1); }
+  | translation_unit external_declaration { AST_root->insertExternalUnit($2); }
   ;
 
 external_declaration

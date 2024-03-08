@@ -15,6 +15,9 @@ class NodeAST {
   }
 };
 
+class ExternalDecls : public NodeAST {
+};
+
 class RootAST : public NodeAST {
   std::vector<std::unique_ptr<ExternalDecls>> _extern_units;    
 
@@ -32,8 +35,6 @@ class RootAST : public NodeAST {
   }
 };
 
-class ExternalDecls : public NodeAST {
-};
 
 //Base class for all exressions
 class ExprAST : public NodeAST {
@@ -118,37 +119,46 @@ class BlockItemListAST : public StmtAST {
 };
 
 class DirectDeclaratorAST : public NodeAST { 
-  PointerAst _pointer; // to write
+  /* PointerAst _pointer; // to write */
 
   public:
-  void updatePointer(std::unique_ptr<PointerAst> &ptrast) { _pointer = ptrast; }
+  /* void updatePointer(std::unique_ptr<PointerAst> &ptrast) { _pointer = ptrast; } */
 };
 
-class FunctionDeclaratorAST : public DirectDeclaratorAST {
-  std::unique_ptr<DirectDeclaratorAST> _identifier;
-  std::unique_ptr<ParamListAST> _paramlist;
+class SpecifierAST : public NodeAST {
+};
+
+class DeclSpecifierAST : public NodeAST {
+  std::unique_ptr<SpecifierAST> _cur_specifier;
+  std::unique_ptr<DeclSpecifierAST> _next;
 
   public:
-  FunctionDeclaratorAST(std::unique_ptr<DirectDeclaratorAST> &identifier_decl, std::unique_ptr<ParamListAST> &paramlist) :
-    _identifier(std::move(identifier_decl)), _paramlist(std::move(paramlist)) {  }
+  DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier, std::unique_ptr<DeclSpecifierAST> &next) :
+    _cur_specifier(std::move(cur_specifier)), _next(std::move(next)) {  }
+
+  DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier) : _cur_specifier ( std::move(cur_specifier) ) {  }
 
   void print(int indent) {
-    printIndent(indent);
-    printf("FunctionDeclarator\n");
-    if (_identifier != nullptr) _identifier->print(indent+1);
-    if (_paramlist != nullptr) _paramlist->print(indent+1);
+    _cur_specifier->print(indent);
+    if (_next != nullptr) _next->print(indent);
   }
+
 };
 
-class IdDeclaratorAST : public NodeAST {
-  std::string _name;
+class ParamDeclAST : public NodeAST {
+  std::unique_ptr<DeclSpecifierAST> _specs;
+  std::unique_ptr<DirectDeclaratorAST> _decl;  
 
   public:
-  IdDeclaratorAST(const std::string& name) : _name(name) {  }
+  ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs, std::unique_ptr<DirectDeclaratorAST>& decl) : _specs(std::move(specs)), _decl(std::move(decl)) {}   
+
+  ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs) : _specs(std::move(specs)) {}  
 
   void print(int indent) {
     printIndent(indent);
-    printf("ID:%s\n", _name);
+    printf("Parameter\n");
+    if (_specs != nullptr) _specs->print(indent+1);
+    if (_decl != nullptr) _decl->print(indent+1);
   }
 };
 
@@ -182,26 +192,40 @@ class ParamListAST : public NodeAST {
   }
 };
 
-class ParamDeclAST : public NodeAST {
-  std::unique_ptr<DeclSpecifierAST> _specs;
-  std::unique_ptr<DirectDeclaratorAST> _decl;  
+class FunctionDeclaratorAST : public DirectDeclaratorAST {
+  std::unique_ptr<DirectDeclaratorAST> _identifier;
+  std::unique_ptr<ParamListAST> _paramlist;
 
   public:
-  ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs, std::unique_ptr<DirectDeclaratorAST>& decl) : _specs(std::move(specs)), _decl(std::move(decl)) {}   
-
-  ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs) : _specs(std::move(specs)) {}  
+  FunctionDeclaratorAST(std::unique_ptr<DirectDeclaratorAST> &identifier_decl, std::unique_ptr<ParamListAST> &paramlist) :
+    _identifier(std::move(identifier_decl)), _paramlist(std::move(paramlist)) {  }
 
   void print(int indent) {
     printIndent(indent);
-    printf("Parameter\n");
-    if (_specs != nullptr) _specs->print(indent+1);
-    if (_decl != nullptr) _decl->print(indent+1);
+    printf("FunctionDeclarator\n");
+    if (_identifier != nullptr) _identifier->print(indent+1);
+    if (_paramlist != nullptr) _paramlist->print(indent+1);
   }
 };
+
+class IdDeclaratorAST : public NodeAST {
+  std::string _name;
+
+  public:
+  IdDeclaratorAST(const std::string& name) : _name(name) {  }
+
+  void print(int indent) {
+    printIndent(indent);
+    printf("ID:%s\n", _name);
+  }
+};
+
+
 
 class DeclarationAST : public NodeAST {
 
 };
+
 
 class FunctionDefinitionAST : public ExternalDecls {
   std::unique_ptr<DeclSpecifierAST> _decl_specs;
@@ -222,8 +246,6 @@ class FunctionDefinitionAST : public ExternalDecls {
 };
 
 
-class SpecifierAST : public NodeAST {
-};
 
 class TypeQualifierAST : public SpecifierAST {
   std::string _qual_name;
@@ -252,19 +274,3 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
   }
 };
 
-class DeclSpecifierAST : public NodeAST {
-  std::unique_ptr<SpecifierAST> _cur_specifier;
-  std::unique_ptr<DeclSpecifierAST> _next;
-
-  public:
-  DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier, std::unique_ptr<DeclSpecifierAST> &next) :
-    _cur_specifier(std::move(cur_specifier)), _next(std::move(next)) {  }
-
-  DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier) : _cur_specifier ( std::move(cur_specifier) ) {  }
-
-  void print(int indent) {
-    _cur_specifier->print(indent);
-    if (_next != nullptr) _next->print(indent);
-  }
-
-};
