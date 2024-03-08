@@ -23,6 +23,7 @@ WS  [ \t\v\n\f]
 
 %{
 #include <stdio.h>
+#include <string>
 #include "AstNodes.h"
 #include "c.tab.hpp"
 
@@ -31,6 +32,7 @@ extern void yyerror(const char *);  /* prints grammar violation message */
 extern int sym_type(const char *);  /* returns type from symbol table */
 
 #define sym_type(identifier) IDENTIFIER /* with no symbol table, fake it */
+#define SAVETOKEN yylval.str_token = new std::string(yytext, yyleng)
 
 static void comment(void);
 static int check_type(void);
@@ -65,7 +67,7 @@ static int check_type(void);
 "return"				{ return(RETURN); }
 "short"					{ return(SHORT); }
 "signed"				{ return(SIGNED); }
-"sizeof"				{ return(SIZEOF); }
+"sizeof"				{ SAVETOKEN; return(SIZEOF); }
 "static"				{ return(STATIC); }
 "struct"				{ return(STRUCT); }
 "switch"				{ return(SWITCH); }
@@ -85,23 +87,23 @@ static int check_type(void);
 "_Noreturn"                             { return NORETURN; }
 "_Static_assert"                        { return STATIC_ASSERT; }
 "_Thread_local"                         { return THREAD_LOCAL; }
-"__func__"                              { return FUNC_NAME; }
+"__func__"                              { SAVETOKEN; return FUNC_NAME; }
 
 {L}{A}*					{ return check_type(); }
 
-{HP}{H}+{IS}?				{ return I_CONSTANT; }
-{NZ}{D}*{IS}?				{ return I_CONSTANT; }
-"0"{O}*{IS}?				{ return I_CONSTANT; }
-{CP}?"'"([^'\\\n]|{ES})+"'"		{ return I_CONSTANT; }
+{HP}{H}+{IS}?				{ SAVETOKEN; return I_CONSTANT; }
+{NZ}{D}*{IS}?				{ SAVETOKEN; return I_CONSTANT; }
+"0"{O}*{IS}?				{ SAVETOKEN; return I_CONSTANT; }
+{CP}?"'"([^'\\\n]|{ES})+"'"		{ SAVETOKEN; return I_CONSTANT; }
 
-{D}+{E}{FS}?				{ return F_CONSTANT; }
-{D}*"."{D}+{E}?{FS}?			{ return F_CONSTANT; }
-{D}+"."{E}?{FS}?			{ return F_CONSTANT; }
-{HP}{H}+{P}{FS}?			{ return F_CONSTANT; }
-{HP}{H}*"."{H}+{P}{FS}?			{ return F_CONSTANT; }
-{HP}{H}+"."{P}{FS}?			{ return F_CONSTANT; }
+{D}+{E}{FS}?				{ SAVETOKEN; return F_CONSTANT; }
+{D}*"."{D}+{E}?{FS}?			{ SAVETOKEN; return F_CONSTANT; }
+{D}+"."{E}?{FS}?			{ SAVETOKEN; return F_CONSTANT; }
+{HP}{H}+{P}{FS}?			{ SAVETOKEN; return F_CONSTANT; }
+{HP}{H}*"."{H}+{P}{FS}?			{ SAVETOKEN; return F_CONSTANT; }
+{HP}{H}+"."{P}{FS}?			{ SAVETOKEN; return F_CONSTANT; }
 
-({SP}?\"([^"\\\n]|{ES})*\"{WS}*)+	{ return STRING_LITERAL; }
+({SP}?\"([^"\\\n]|{ES})*\"{WS}*)+	{ SAVETOKEN; return STRING_LITERAL; }
 
 "..."					{ return ELLIPSIS; }
 ">>="					{ return RIGHT_ASSIGN; }
@@ -188,6 +190,6 @@ static int check_type(void)
     case ENUMERATION_CONSTANT:        /* previously defined */
         return ENUMERATION_CONSTANT;
     default:                          /* includes undefined */
-        return IDENTIFIER;
+        SAVETOKEN; return IDENTIFIER;
     }
 }

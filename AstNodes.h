@@ -53,7 +53,7 @@ class IntegerExprAST : public ExprAST {
   int val;
 
   public:
-  IntegerExprAST(int Val) : val(Val) {}
+  IntegerExprAST(int Val) : val(Val) {  }
 
   void print(int indent) { printIndent(indent); printf("%d\n", val); }
 };
@@ -73,7 +73,7 @@ class IdentifierAST : public ExprAST {
   public:
   IdentifierAST(const std::string& name) : _name( name ) {  }
 
-  void print(int indent) { printIndent(indent); printf("%s\n", _name); }
+  void print(int indent) { printIndent(indent); cout << _name << endl; }
 };
 
 // Binary expression AST node
@@ -88,7 +88,7 @@ class BinaryExprAST : public ExprAST {
   void print(int indent) { 
     left->print(indent+1);
     printIndent(indent); 
-    printf("%s\n", op);
+    cout << op << endl;
     right->print(indent+1);
   }
 };
@@ -216,11 +216,11 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
   std::string _name;
 
   public:
-  IdDeclaratorAST(const std::string& name) : _name(name) { cout << "name" << name << endl; }
+  IdDeclaratorAST(const std::string& name) : _name(name) { }
 
   void print(int indent) {
     printIndent(indent);
-    printf("ID:%s\n", _name);
+    cout << "ID: " << _name << endl;
   }
 };
 
@@ -249,8 +249,6 @@ class FunctionDefinitionAST : public ExternalDecls {
   }
 };
 
-
-
 class TypeQualifierAST : public SpecifierAST {
   std::string _qual_name;
 
@@ -259,7 +257,7 @@ class TypeQualifierAST : public SpecifierAST {
 
   void print(int indent) {
     printIndent(indent);
-    printf("Type Qualifier : %s", _qual_name);
+    cout << "Type Qualifier : " << _qual_name << endl;
   }
 };
 
@@ -270,11 +268,11 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
   std::string _type_name;
   
   public:
-  PrimitiveTypeSpecAST(std::string type_name) : _type_name ( type_name ) {  }
+  PrimitiveTypeSpecAST(std::string type_name) : _type_name ( type_name ) { }
 
   void print(int indent) {
     printIndent(indent);
-    printf("Type Specifier : %s", _type_name);
+    cout << "Type Specifier: " << _type_name << endl;
   }
 };
 

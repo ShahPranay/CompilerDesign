@@ -71,16 +71,16 @@ RootAST* AST_root;
 
 
 primary_expression
-  : IDENTIFIER { $$ = new IdentifierAST(*$1); delete $1;}
+  : IDENTIFIER { $$ = new IdentifierAST(*$1);}
   | constant
   | string
-  | '(' expression ')'
+  | '(' expression ')' { $$ = $2; }
   | generic_selection
   ;
 
 constant
-  : I_CONSTANT	{ $$ = new IntegerExprAST(atoi($1->c_str())); delete $1; }	/* includes character_constant */
-  | F_CONSTANT  { $$ = new DoubleExprAST(atof($1->c_str())); delete $1; }
+  : I_CONSTANT	{ $$ = new IntegerExprAST(atoi($1->c_str())); }	/* includes character_constant */
+  | F_CONSTANT  { $$ = new DoubleExprAST(atof($1->c_str())); }
   | ENUMERATION_CONSTANT	/* after it has been defined as such */
   ;
 
@@ -382,7 +382,7 @@ declarator
   ;
 
 direct_declarator
-  : IDENTIFIER { $$ = new IdDeclaratorAST(*$1); delete $1; }
+  : IDENTIFIER { $$ = new IdDeclaratorAST(*$1); }
   | '(' declarator ')'
   | direct_declarator '[' ']'
   | direct_declarator '[' '*' ']'
