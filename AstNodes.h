@@ -19,11 +19,11 @@ class ExternalDecls : public NodeAST {
 };
 
 class RootAST : public NodeAST {
-  std::vector<std::unique_ptr<ExternalDecls>> _extern_units;    
+  std::vector<ExternalDecls*> _extern_units;    
 
   public:
-  void insertExternalUnit(std::unique_ptr<ExternalDecls> &unit) {
-    _extern_units.push_back(std::move(unit));
+  void insertExternalUnit(ExternalDecls* &unit) {
+    _extern_units.push_back(unit);
   }
 
   void print(int indent) {
@@ -75,11 +75,11 @@ class IdentifierAST : public ExprAST {
 // Binary expression AST node
 class BinaryExprAST : public ExprAST {
   std::string op;
-  std::unique_ptr<ExprAST> left, right;
+  ExprAST *left, *right;
 
   public:
-  BinaryExprAST(const std::string& op, std::unique_ptr<ExprAST> LHS, std::unique_ptr<ExprAST> RHS)
-    : op(op), left(std::move(LHS)), right(std::move(RHS)) {}
+  BinaryExprAST(const std::string& op, ExprAST* LHS, ExprAST* RHS)
+    : op(op), left(LHS), right(RHS) {}
 
   void print(int indent) { 
     left->print(indent+1);
@@ -90,11 +90,11 @@ class BinaryExprAST : public ExprAST {
 };
 
 class ExprStmtAST : public StmtAST {
-  std::unique_ptr<ExprAST> _expression;
+  ExprAST* _expression;
 
   public:
-  ExprStmtAST(std::unique_ptr<ExprAST>& expression) : _expression(std::move(expression)) {  }
-  ExprStmtAST() : _expression(std::make_unique<ExprAST>(nullptr)) {  }
+  ExprStmtAST(ExprAST*& expression) : _expression(expression) {  }
+  ExprStmtAST() : _expression(nullptr) {  }
 
   void print(int indent) {
     if (_expression != nullptr) _expression->print(indent);
@@ -102,13 +102,13 @@ class ExprStmtAST : public StmtAST {
 };
 
 class BlockItemListAST : public StmtAST {
-  std::vector<std::unique_ptr<StmtAST>> _statements;
+  std::vector<StmtAST*> _statements;
 
   public:
   BlockItemListAST() {}
 
-  void insertStatement(std::unique_ptr<StmtAST>& stmt) {
-    _statements.push_back(std::move(stmt));
+  void insertStatement(StmtAST*& stmt) {
+    _statements.push_back(stmt);
   }
 
   void print(int indent) {
@@ -122,21 +122,21 @@ class DirectDeclaratorAST : public NodeAST {
   /* PointerAst _pointer; // to write */
 
   public:
-  /* void updatePointer(std::unique_ptr<PointerAst> &ptrast) { _pointer = ptrast; } */
+  /* void updatePointer(PointerAst> &ptrast) { _pointer = ptrast; } */
 };
 
 class SpecifierAST : public NodeAST {
 };
 
 class DeclSpecifierAST : public NodeAST {
-  std::unique_ptr<SpecifierAST> _cur_specifier;
-  std::unique_ptr<DeclSpecifierAST> _next;
+  SpecifierAST* _cur_specifier;
+  DeclSpecifierAST* _next;
 
   public:
-  DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier, std::unique_ptr<DeclSpecifierAST> &next) :
-    _cur_specifier(std::move(cur_specifier)), _next(std::move(next)) {  }
+  DeclSpecifierAST(SpecifierAST* &cur_specifier, DeclSpecifierAST* &next) :
+    _cur_specifier(cur_specifier), _next(next) {  }
 
-  DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier) : _cur_specifier ( std::move(cur_specifier) ) {  }
+  DeclSpecifierAST(SpecifierAST* &cur_specifier) : _cur_specifier ( cur_specifier)  {  }
 
   void print(int indent) {
     _cur_specifier->print(indent);
@@ -146,13 +146,13 @@ class DeclSpecifierAST : public NodeAST {
 };
 
 class ParamDeclAST : public NodeAST {
-  std::unique_ptr<DeclSpecifierAST> _specs;
-  std::unique_ptr<DirectDeclaratorAST> _decl;  
+  DeclSpecifierAST* _specs;
+  DirectDeclaratorAST* _decl;  
 
   public:
-  ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs, std::unique_ptr<DirectDeclaratorAST>& decl) : _specs(std::move(specs)), _decl(std::move(decl)) {}   
+  ParamDeclAST(DeclSpecifierAST*& specs, DirectDeclaratorAST*& decl) : _specs(specs), _decl(decl) {}   
 
-  ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs) : _specs(std::move(specs)) {}  
+  ParamDeclAST(DeclSpecifierAST*& specs) : _specs(specs) {}  
 
   void print(int indent) {
     printIndent(indent);
@@ -164,13 +164,13 @@ class ParamDeclAST : public NodeAST {
 
 class ParamListAST : public NodeAST {
   bool _isEllipsis;
-  std::vector<std::unique_ptr<ParamDeclAST>> _params;
+  std::vector<ParamDeclAST*> _params;
 
   public:
   ParamListAST(bool isellipsis) : _isEllipsis(isellipsis) {  }
 
-  void insertParam(std::unique_ptr<ParamDeclAST>& param) {
-    _params.push_back(std::move(param));
+  void insertParam(ParamDeclAST*& param) {
+    _params.push_back(param);
   }
 
   void updateEllipsis(bool isellipsis) {
@@ -193,12 +193,12 @@ class ParamListAST : public NodeAST {
 };
 
 class FunctionDeclaratorAST : public DirectDeclaratorAST {
-  std::unique_ptr<DirectDeclaratorAST> _identifier;
-  std::unique_ptr<ParamListAST> _paramlist;
+  DirectDeclaratorAST* _identifier;
+  ParamListAST* _paramlist;
 
   public:
-  FunctionDeclaratorAST(std::unique_ptr<DirectDeclaratorAST> &identifier_decl, std::unique_ptr<ParamListAST> &paramlist) :
-    _identifier(std::move(identifier_decl)), _paramlist(std::move(paramlist)) {  }
+  FunctionDeclaratorAST(DirectDeclaratorAST* &identifier_decl, ParamListAST* &paramlist) :
+    _identifier(identifier_decl), _paramlist(paramlist) {  }
 
   void print(int indent) {
     printIndent(indent);
@@ -228,13 +228,13 @@ class DeclarationAST : public NodeAST {
 
 
 class FunctionDefinitionAST : public ExternalDecls {
-  std::unique_ptr<DeclSpecifierAST> _decl_specs;
-  std::unique_ptr<DirectDeclaratorAST> _declarators;
-  std::unique_ptr<BlockItemListAST> _compound_stmts;
+  DeclSpecifierAST* _decl_specs;
+  DirectDeclaratorAST* _declarators;
+  BlockItemListAST* _compound_stmts;
 
   public:
-  FunctionDefinitionAST(std::unique_ptr<DeclSpecifierAST> &declspecs, std::unique_ptr<DirectDeclaratorAST> &decls, std::unique_ptr<BlockItemListAST> &stmts) :
-    _decl_specs(std::move(declspecs)), _declarators(std::move(decls)), _compound_stmts(std::move(stmts)) {  }
+  FunctionDefinitionAST(DeclSpecifierAST* &declspecs, DirectDeclaratorAST* &decls, BlockItemListAST* &stmts) :
+    _decl_specs(declspecs), _declarators(decls), _compound_stmts(stmts) {  }
 
   void print(int indent) {
     printIndent(indent);
