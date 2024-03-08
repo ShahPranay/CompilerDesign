@@ -32,9 +32,7 @@ main(int argc, char **argv)
   char const *filename = argv[1];
   yyin = fopen(filename, "r");
   assert(yyin);
-  std::cout << "before" << endl;
   int ret = yyparse();
-  std::cout << "after" << endl;
   dump_ast();
   printf("retv = %d\n", ret);
   exit(0);
