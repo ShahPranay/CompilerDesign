@@ -20,6 +20,9 @@ In the case of functions it also produces a list of its parameters.
 ### ParamListAST
 This class stores a vector of `ParamDeclAST*` objects each of which correspond to a function parameter.
 
+### DeclSpecifierAST
+These are the nodes of a linked list. Each of them holds a `Specifier*`.
+
 ### Specifier
 Produces the type specifer among other things. We have a derived class for different kinds. 
 `PrimitiveTypeSpecAST`, for example, is used to specify the primitive types like `int`, `char` etc.
