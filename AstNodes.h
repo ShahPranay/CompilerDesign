@@ -1,6 +1,10 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <iostream>
+
+using std::cout;
+using std::endl;
 
 //Base class for all nodes
 class NodeAST {
@@ -208,11 +212,11 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
   }
 };
 
-class IdDeclaratorAST : public NodeAST {
+class IdDeclaratorAST : public DirectDeclaratorAST {
   std::string _name;
 
   public:
-  IdDeclaratorAST(const std::string& name) : _name(name) {  }
+  IdDeclaratorAST(const std::string& name) : _name(name) { cout << "name" << name << endl; }
 
   void print(int indent) {
     printIndent(indent);

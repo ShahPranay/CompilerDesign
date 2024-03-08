@@ -11,24 +11,24 @@ extern "C" FILE *yyin;
 
 void yyerror(const char *s);
 
-std::unique_ptr<RootAST> AST_root;
+RootAST* AST_root;
 %}
 
 %union{
-  std::unique_ptr<NodeAST> node;
-  std::unique_ptr<StmtAST> statement;
-  std::unique_ptr<ExprAST> expression;
-  std::unique_ptr<IdentifierAST> identifier;
-  std::unique_ptr<BlockItemListAST> block_list;
-  std::unique_ptr<ParamListAST> param_list;
-  std::unique_ptr<ParamDeclAST> param_decl;
-  std::unique_ptr<DirectDeclaratorAST> direct_decl;
-  std::unique_ptr<SpecifierAST> specifier;
-  std::unique_ptr<DeclSpecifierAST> decl_specs;
-  std::unique_ptr<ExternalDecls> external_decls;
+  NodeAST* node;
+  StmtAST* statement;
+  ExprAST* expression;
+  IdentifierAST* identifier;
+  BlockItemListAST* block_list;
+  ParamListAST* param_list;
+  ParamDeclAST* param_decl;
+  DirectDeclaratorAST* direct_decl;
+  SpecifierAST* specifier;
+  DeclSpecifierAST* decl_specs;
+  ExternalDecls* external_decls;
   int int_token;
   double double_token;
-  std::unique_ptr<std::string> str_token;
+  std::string* str_token;
 }
 
 %token	<str_token> IDENTIFIER I_CONSTANT F_CONSTANT STRING_LITERAL FUNC_NAME SIZEOF
@@ -71,7 +71,7 @@ std::unique_ptr<RootAST> AST_root;
 
 
 primary_expression
-  : IDENTIFIER { $$ = std::make_unique<IdentifierAST>(*$1); }
+  : IDENTIFIER { $$ = new IdentifierAST(*$1); delete $1;}
   | constant
   | string
   | '(' expression ')'
@@ -79,8 +79,8 @@ primary_expression
   ;
 
 constant
-  : I_CONSTANT	{ $$ = std::make_unique<IntegerExprAST>(atoi($1->c_str())); }	/* includes character_constant */
-  | F_CONSTANT  { $$ = std::make_unique<DoubleExprAST>(atof($1->c_str())); }
+  : I_CONSTANT	{ $$ = new IntegerExprAST(atoi($1->c_str())); delete $1; }	/* includes character_constant */
+  | F_CONSTANT  { $$ = new DoubleExprAST(atof($1->c_str())); delete $1; }
   | ENUMERATION_CONSTANT	/* after it has been defined as such */
   ;
 
@@ -151,60 +151,60 @@ cast_expression
 
 multiplicative_expression
   : cast_expression
-  | multiplicative_expression '*' cast_expression { $$ = std::make_unique<BinaryExprAST>("*", $1, $3); }
-  | multiplicative_expression '/' cast_expression { $$ = std::make_unique<BinaryExprAST>("/", $1, $3); }
-  | multiplicative_expression '%' cast_expression { $$ = std::make_unique<BinaryExprAST>("%", $1, $3); }
+  | multiplicative_expression '*' cast_expression { $$ = new BinaryExprAST("*", $1, $3); }
+  | multiplicative_expression '/' cast_expression { $$ = new BinaryExprAST("/", $1, $3); }
+  | multiplicative_expression '%' cast_expression { $$ = new BinaryExprAST("%", $1, $3); }
   ;
 
 additive_expression
   : multiplicative_expression
-  | additive_expression '+' multiplicative_expression { $$ = std::make_unique<BinaryExprAST>("+", $1, $3); }
-  | additive_expression '-' multiplicative_expression { $$ = std::make_unique<BinaryExprAST>("-", $1, $3); }
+  | additive_expression '+' multiplicative_expression { $$ = new BinaryExprAST("+", $1, $3); }
+  | additive_expression '-' multiplicative_expression { $$ = new BinaryExprAST("-", $1, $3); }
   ;
 
 shift_expression
   : additive_expression
-  | shift_expression LEFT_OP additive_expression { $$ = std::make_unique<BinaryExprAST>("<<", $1, $3); }
-  | shift_expression RIGHT_OP additive_expression { $$ = std::make_unique<BinaryExprAST>(">>", $1, $3); }
+  | shift_expression LEFT_OP additive_expression { $$ = new BinaryExprAST("<<", $1, $3); }
+  | shift_expression RIGHT_OP additive_expression { $$ = new BinaryExprAST(">>", $1, $3); }
   ;
 
 relational_expression
   : shift_expression
-  | relational_expression '<' shift_expression { $$ = std::make_unique<BinaryExprAST>("<", $1, $3); }
-  | relational_expression '>' shift_expression { $$ = std::make_unique<BinaryExprAST>(">", $1, $3); }
-  | relational_expression LE_OP shift_expression { $$ = std::make_unique<BinaryExprAST>("<=", $1, $3); }
-  | relational_expression GE_OP shift_expression { $$ = std::make_unique<BinaryExprAST>(">=", $1, $3); }
+  | relational_expression '<' shift_expression { $$ = new BinaryExprAST("<", $1, $3); }
+  | relational_expression '>' shift_expression { $$ = new BinaryExprAST(">", $1, $3); }
+  | relational_expression LE_OP shift_expression { $$ = new BinaryExprAST("<=", $1, $3); }
+  | relational_expression GE_OP shift_expression { $$ = new BinaryExprAST(">=", $1, $3); }
   ;
 
 equality_expression
   : relational_expression
-  | equality_expression EQ_OP relational_expression { $$ = std::make_unique<BinaryExprAST>("==", $1, $3); }
-  | equality_expression NE_OP relational_expression { $$ = std::make_unique<BinaryExprAST>("!=", $1, $3); }
+  | equality_expression EQ_OP relational_expression { $$ = new BinaryExprAST("==", $1, $3); }
+  | equality_expression NE_OP relational_expression { $$ = new BinaryExprAST("!=", $1, $3); }
   ;
 
 and_expression
   : equality_expression
-  | and_expression '&' equality_expression { $$ = std::make_unique<BinaryExprAST>("&", $1, $3); }
+  | and_expression '&' equality_expression { $$ = new BinaryExprAST("&", $1, $3); }
   ;
 
 exclusive_or_expression
   : and_expression
-  | exclusive_or_expression '^' and_expression { $$ = std::make_unique<BinaryExprAST>("^", $1, $3); }
+  | exclusive_or_expression '^' and_expression { $$ = new BinaryExprAST("^", $1, $3); }
   ;
 
 inclusive_or_expression
   : exclusive_or_expression
-  | inclusive_or_expression '|' exclusive_or_expression { $$ = std::make_unique<BinaryExprAST>("|", $1, $3); }
+  | inclusive_or_expression '|' exclusive_or_expression { $$ = new BinaryExprAST("|", $1, $3); }
   ;
 
 logical_and_expression
   : inclusive_or_expression
-  | logical_and_expression AND_OP inclusive_or_expression { $$ = std::make_unique<BinaryExprAST>("&&", $1, $3); }
+  | logical_and_expression AND_OP inclusive_or_expression { $$ = new BinaryExprAST("&&", $1, $3); }
   ;
 
 logical_or_expression
   : logical_and_expression
-  | logical_or_expression OR_OP logical_and_expression { $$ = std::make_unique<BinaryExprAST>("||", $1, $3); }
+  | logical_or_expression OR_OP logical_and_expression { $$ = new BinaryExprAST("||", $1, $3); }
   ;
 
 conditional_expression
@@ -248,15 +248,15 @@ declaration
 
 declaration_specifiers
   : storage_class_specifier declaration_specifiers
-  | storage_class_specifier { $$ = std::make_unique<DeclSpecifierAST>($1); } 
-  | type_specifier declaration_specifiers { $$ = std::make_unique<DeclSpecifierAST>($1, $2); }
-  | type_specifier { $$ = std::make_unique<DeclSpecifierAST>($1); }
-  | type_qualifier declaration_specifiers { $$ = std::make_unique<DeclSpecifierAST>($1, $2); }
-  | type_qualifier { $$ = std::make_unique<DeclSpecifierAST>($1); }
+  | storage_class_specifier { $$ = new DeclSpecifierAST($1); } 
+  | type_specifier declaration_specifiers { $$ = new DeclSpecifierAST($1, $2); }
+  | type_specifier { $$ = new DeclSpecifierAST($1); }
+  | type_qualifier declaration_specifiers { $$ = new DeclSpecifierAST($1, $2); }
+  | type_qualifier { $$ = new DeclSpecifierAST($1); }
   | function_specifier declaration_specifiers
-  | function_specifier { $$ = std::make_unique<DeclSpecifierAST>($1); }
+  | function_specifier { $$ = new DeclSpecifierAST($1); }
   | alignment_specifier declaration_specifiers
-  | alignment_specifier { $$ = std::make_unique<DeclSpecifierAST>($1); }
+  | alignment_specifier { $$ = new DeclSpecifierAST($1); }
   ;
 
 init_declarator_list
@@ -279,17 +279,17 @@ storage_class_specifier
   ;
 
 type_specifier
-  : VOID { $$ = std::make_unique<PrimitiveTypeSpecAST>("void"); }
-  | CHAR { $$ = std::make_unique<PrimitiveTypeSpecAST>("char"); }
-  | SHORT { $$ = std::make_unique<PrimitiveTypeSpecAST>("short"); }
-  | INT { $$ = std::make_unique<PrimitiveTypeSpecAST>("int"); }
-  | LONG { $$ = std::make_unique<PrimitiveTypeSpecAST>("long"); }
-  | FLOAT { $$ = std::make_unique<PrimitiveTypeSpecAST>("float"); }
-  | DOUBLE { $$ = std::make_unique<PrimitiveTypeSpecAST>("double"); }
-  | SIGNED { $$ = std::make_unique<PrimitiveTypeSpecAST>("signed"); }
-  | UNSIGNED { $$ = std::make_unique<PrimitiveTypeSpecAST>("unsigned"); }
-  | BOOL { $$ = std::make_unique<PrimitiveTypeSpecAST>("bool"); }
-  | COMPLEX { $$ = std::make_unique<PrimitiveTypeSpecAST>("complex"); }
+  : VOID { $$ = new PrimitiveTypeSpecAST("void"); }
+  | CHAR { $$ = new PrimitiveTypeSpecAST("char"); }
+  | SHORT { $$ = new PrimitiveTypeSpecAST("short"); }
+  | INT { $$ = new PrimitiveTypeSpecAST("int"); }
+  | LONG { $$ = new PrimitiveTypeSpecAST("long"); }
+  | FLOAT { $$ = new PrimitiveTypeSpecAST("float"); }
+  | DOUBLE { $$ = new PrimitiveTypeSpecAST("double"); }
+  | SIGNED { $$ = new PrimitiveTypeSpecAST("signed"); }
+  | UNSIGNED { $$ = new PrimitiveTypeSpecAST("unsigned"); }
+  | BOOL { $$ = new PrimitiveTypeSpecAST("bool"); }
+  | COMPLEX { $$ = new PrimitiveTypeSpecAST("complex"); }
   | IMAGINARY	  	/* non-mandated extension */
   | atomic_type_specifier
   | struct_or_union_specifier
@@ -360,10 +360,10 @@ atomic_type_specifier
   ;
 
 type_qualifier
-  : CONST { $$ = std::make_unique<TypeQualifierAST>("const"); }
-  | RESTRICT { $$ = std::make_unique<TypeQualifierAST>("restrict"); }
-  | VOLATILE { $$ = std::make_unique<TypeQualifierAST>("volatile"); }
-  | ATOMIC { $$ = std::make_unique<TypeQualifierAST>("atomic"); }
+  : CONST { $$ = new TypeQualifierAST("const"); }
+  | RESTRICT { $$ = new TypeQualifierAST("restrict"); }
+  | VOLATILE { $$ = new TypeQualifierAST("volatile"); }
+  | ATOMIC { $$ = new TypeQualifierAST("atomic"); }
   ;
 
 function_specifier
@@ -382,7 +382,7 @@ declarator
   ;
 
 direct_declarator
-  : IDENTIFIER { $$ = std::make_unique<IdDeclaratorAST>(*$1); }
+  : IDENTIFIER { $$ = new IdDeclaratorAST(*$1); delete $1; }
   | '(' declarator ')'
   | direct_declarator '[' ']'
   | direct_declarator '[' '*' ']'
@@ -393,7 +393,7 @@ direct_declarator
   | direct_declarator '[' type_qualifier_list assignment_expression ']'
   | direct_declarator '[' type_qualifier_list ']'
   | direct_declarator '[' assignment_expression ']'
-  | direct_declarator '(' parameter_type_list ')' { $$ = std::make_unique<FunctionDeclaratorAST>($1, $3); }
+  | direct_declarator '(' parameter_type_list ')' { $$ = new FunctionDeclaratorAST($1, $3); }
   | direct_declarator '(' ')'
   | direct_declarator '(' identifier_list ')'
   ;
@@ -412,18 +412,18 @@ type_qualifier_list
 
 parameter_type_list
   : parameter_list ',' ELLIPSIS { $1->updateEllipsis(true); $$ = $1; }
-  | parameter_list { $$ = $1 }
+  | parameter_list 
   ;
 
 parameter_list
-  : parameter_declaration { $$ = std::make_unique<ParamListAST>(false); $$->insertParam($1); }
+  : parameter_declaration { $$ = new ParamListAST(false); $$->insertParam($1); }
   | parameter_list ',' parameter_declaration { $1->insertParam($3); $$ = $1; }
   ;
 
 parameter_declaration
-  : declaration_specifiers declarator { $$ = std::make_unique<ParamDeclAST>($1, $2); }
+  : declaration_specifiers declarator { $$ = new ParamDeclAST($1, $2); }
   | declaration_specifiers abstract_declarator
-  | declaration_specifiers { $$ = std::make_unique<ParamDeclAST>($1); }
+  | declaration_specifiers { $$ = new ParamDeclAST($1); }
   ;
 
 identifier_list
@@ -513,12 +513,12 @@ labeled_statement
   ;
 
 compound_statement
-  : '{' '}' {$$ = std::make_unique<BlockItemListAST>();}
+  : '{' '}' {$$ = new BlockItemListAST();}
   | '{'  block_item_list '}' { $$ = $2; }
   ;
 
 block_item_list
-  : block_item { $$ = std::make_unique<BlockItemListAST>(); $$->insertStatement($1); }
+  : block_item { $$ = new BlockItemListAST(); $$->insertStatement($1); }
   | block_item_list block_item { $1->insertStatement($2); $$ = $1; }
   ;
 
@@ -528,8 +528,8 @@ block_item
   ;
 
 expression_statement
-  : ';' {$$ = std::make_unique<ExprStmtAST>();}
-  | expression ';' { $$ = std::make_unique<ExprStmtAST>($1); }
+  : ';' {$$ = new ExprStmtAST();}
+  | expression ';' { $$ = new ExprStmtAST($1); }
   ;
 
 selection_statement
@@ -556,7 +556,7 @@ jump_statement
   ;
 
 translation_unit
-  : external_declaration { AST_root = std::make_unique<RootAST>(); AST_root->insertExternalUnit($1); }
+  : external_declaration { AST_root = new RootAST(); AST_root->insertExternalUnit($1); }
   | translation_unit external_declaration { AST_root->insertExternalUnit($2); }
   ;
 
@@ -567,7 +567,7 @@ external_declaration
 
 function_definition
   : declaration_specifiers declarator declaration_list compound_statement
-  | declaration_specifiers declarator compound_statement { $$ = std::make_unique<FunctionDeclaratorAST>($1, $2, $3); }
+  | declaration_specifiers declarator compound_statement { $$ = new FunctionDefinitionAST($1, $2, $3); }
   ;
 
 declaration_list
