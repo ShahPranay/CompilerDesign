@@ -15,6 +15,10 @@ class NodeAST {
   }
 };
 
+class RootAST {
+   
+};
+
 //Base class for all exressions
 class ExprAST : public NodeAST {
     
@@ -104,6 +108,10 @@ class DirectDeclaratorAST : public NodeAST {
 class FunctionDeclaratorAST : public DirectDeclaratorAST {
   std::unique_ptr<DirectDeclaratorAST> _identifier;
   std::unique_ptr<ParamListAST> _paramlist;
+
+  public:
+  FunctionDeclaratorAST(std::unique_ptr<DirectDeclaratorAST> &identifier_decl, std::unique_ptr<ParamListAST> &paramlist) :
+    _identifier(identifier_decl), _paramlist(paramlist) {  }
 };
 
 class IdDeclaratorAST : public NodeAST {
@@ -124,12 +132,15 @@ class ParamListAST : public NodeAST {
 
   public:
   ParamListAST(bool isellipsis) : _isEllipsis(isellipsis) {  }
+
   void insertParam(std::unique_ptr<ParamDeclAST>& param) {
     _params.push_back(std::move(param));
   }
+
   void updateEllipsis(bool isellipsis) {
     _isEllipsis = isellipsis;
   }
+
   void print(int indent) {
     printIndent(indent);
     printf("ParameterList\n");
@@ -159,17 +170,32 @@ class FunctionDefinitionAST : public  NodeAST {
   
 };
 
-enum TypeQualifier {
-  CONST,
-  RESTRICT,
-  VOLATILE,
-  ATOMIC
+
+class SpecifierAST : public NodeAST {
+};
+
+class TypeQualifierAST : public SpecifierAST {
+  std::string _qual_name;
+
+  public:
+  TypeQualifierAST(std::string name) : _qual_name(name) {  }
+};
+
+class TypeSpecifierAST : public SpecifierAST {
+};
+
+class PrimitiveTypeSpecAST : public TypeSpecifierAST {
+  std::string _type_name;
+  
+  public:
+  PrimitiveTypeSpecAST(std::string type_name) : _type_name ( type_name ) {  }
 };
 
 class DeclSpecifierAST : public NodeAST {
-  std::unique_ptr<TypeQualifier> _qualifier;
-  std::unique_ptr<TypeSpecifier> _specifier;
+  std::unique_ptr<SpecifierAST> _cur_specifier;
+  std::unique_ptr<DeclSpecifierAST> _next;
 
   public:
-  DeclSpecifierAST(std::unique_ptr<TypeQualifier>& qualifier, std::unique_ptr<TypeSpecifier>& specifier) : _qualifier(std::move(qualifier)), _specifier(std::move(specifier)) {}
+  DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier, std::unique_ptr<DeclSpecifierAST> &next) :
+    _cur_specifier(cur_specifier), _next(next) {  }
 };
