@@ -13,9 +13,9 @@ class NodeAST {
     virtual void print(int indent) { };
     void printIndent(int indent) {
       for(int i=0; i<indent ; i++) {
-        printf("|  ");
+        cout << "|  ";
     }
-    printf("+-");
+    cout << "+-";
   }
 };
 
@@ -32,7 +32,7 @@ class RootAST : public NodeAST {
 
   void print(int indent) {
     printIndent(indent);
-    printf("External units\n");
+    cout << "External Units" << endl;
     for(int i=0 ;i<_extern_units.size(); i++) {
       _extern_units[i]->print(indent+1);
     }
@@ -55,7 +55,10 @@ class IntegerExprAST : public ExprAST {
   public:
   IntegerExprAST(int Val) : val(Val) {  }
 
-  void print(int indent) { printIndent(indent); printf("%d\n", val); }
+  void print(int indent) { 
+    printIndent(indent);
+    cout << "Val : " << val << endl; 
+  }
 };
 
 class DoubleExprAST : public ExprAST {
@@ -64,7 +67,10 @@ class DoubleExprAST : public ExprAST {
   public:
   DoubleExprAST(double Val) : val(Val) {}
 
-  void print(int indent) { printIndent(indent); printf("%lf\n", val); }
+  void print(int indent) { 
+    printIndent(indent); 
+    cout << "Val : " << val << endl; 
+  }
 };
 
 class IdentifierAST : public ExprAST {
@@ -73,7 +79,10 @@ class IdentifierAST : public ExprAST {
   public:
   IdentifierAST(const std::string& name) : _name( name ) {  }
 
-  void print(int indent) { printIndent(indent); cout << _name << endl; }
+  void print(int indent) { 
+    printIndent(indent); 
+    cout << "ID : " << _name << endl; 
+  }
 };
 
 // Binary expression AST node
@@ -87,8 +96,10 @@ class BinaryExprAST : public ExprAST {
 
   void print(int indent) { 
     left->print(indent+1);
+
     printIndent(indent); 
-    cout << op << endl;
+    cout << "Op : " << op << endl;
+
     right->print(indent+1);
   }
 };
@@ -117,16 +128,15 @@ class BlockItemListAST : public StmtAST {
 
   void print(int indent) {
     for(int i = 0; i<_statements.size();i++) {
-      _statements[i]->print(indent);
+      printIndent(indent);
+      cout << "Statement " << i+1 << endl;
+      _statements[i]->print(indent+1);
     }
   }
 };
 
 class DirectDeclaratorAST : public NodeAST { 
-  /* PointerAst _pointer; // to write */
-
-  public:
-  /* void updatePointer(PointerAst> &ptrast) { _pointer = ptrast; } */
+  
 };
 
 class SpecifierAST : public NodeAST {
@@ -160,7 +170,7 @@ class ParamDeclAST : public NodeAST {
 
   void print(int indent) {
     printIndent(indent);
-    printf("Parameter\n");
+    cout << "Parameter" << endl;
     if (_specs != nullptr) _specs->print(indent+1);
     if (_decl != nullptr) _decl->print(indent+1);
   }
@@ -184,14 +194,16 @@ class ParamListAST : public NodeAST {
   void print(int indent) {
     if (_params.size()>0 || _isEllipsis == true) {
       printIndent(indent);
-      printf("ParameterList\n");
+      cout << "ParameterList" << endl;
     }
+
     for(int i=0;i<_params.size();i++) {
       _params[i]->print(indent+1);
     }
+
     if (_isEllipsis == true) {
       printIndent(indent+1);
-      printf("...\n");
+      cout << "..." << endl;
     }
   }
 };
@@ -206,7 +218,8 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
 
   void print(int indent) {
     printIndent(indent);
-    printf("FunctionDeclarator\n");
+    cout << "Function Declarator" << endl;
+
     if (_identifier != nullptr) _identifier->print(indent+1);
     if (_paramlist != nullptr) _paramlist->print(indent+1);
   }
@@ -220,7 +233,7 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
 
   void print(int indent) {
     printIndent(indent);
-    cout << "ID: " << _name << endl;
+    cout << "ID : " << _name << endl;
   }
 };
 
@@ -242,7 +255,8 @@ class FunctionDefinitionAST : public ExternalDecls {
 
   void print(int indent) {
     printIndent(indent);
-    printf("Function Definition\n");
+    cout << "Function Definition" << endl;
+    
     if (_decl_specs != nullptr) _decl_specs->print(indent+1);
     if (_declarators != nullptr) _declarators->print(indent+1);
     if (_compound_stmts != nullptr) _compound_stmts->print(indent+1);
@@ -272,7 +286,7 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
 
   void print(int indent) {
     printIndent(indent);
-    cout << "Type Specifier: " << _type_name << endl;
+    cout << "Type Specifier : " << _type_name << endl;
   }
 };
 
