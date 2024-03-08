@@ -2,25 +2,22 @@
 #include <vector>
 #include <memory>
 
-enum class NodeType {
-  Expr,
-  IntegerExpr,
-  DoubleExpr,
-  Identifier,
-  BinaryExpr
-};
-
 //Base class for all nodes
 class NodeAST {
   public:
     virtual ~NodeAST() = default;
-    virtual NodeType getType() const = 0;
+    virtual void print(int indent) { };
+    void printIndent(int indent) {
+      for(int i=0; i<indent ; i++) {
+        printf("|  ");
+    }
+    printf("+-");
+  }
 };
 
 //Base class for all exressions
 class ExprAST : public NodeAST {
-  public:
-    NodeType getType() const override { return NodeType::Expr; }
+    
 };
 
 // Base class for all statements
@@ -34,7 +31,7 @@ class IntegerExprAST : public ExprAST {
   public:
   IntegerExprAST(int Val) : val(Val) {}
 
-  int getVal() const { return val; }
+  void print(int indent) { printIndent(indent); printf("%d\n", val); }
 };
 
 class DoubleExprAST : public ExprAST {
@@ -42,6 +39,8 @@ class DoubleExprAST : public ExprAST {
 
   public:
   DoubleExprAST(double Val) : val(Val) {}
+
+  void print(int indent) { printIndent(indent); printf("%lf\n", val); }
 };
 
 class IdentifierAST : public ExprAST {
@@ -49,6 +48,8 @@ class IdentifierAST : public ExprAST {
 
   public:
   IdentifierAST(const std::string& name) : _name( name ) {  }
+
+  void print(int indent) { printIndent(indent); printf("%s\n", _name); }
 };
 
 // Binary expression AST node
@@ -60,9 +61,12 @@ class BinaryExprAST : public ExprAST {
   BinaryExprAST(const std::string& op, std::unique_ptr<ExprAST> LHS, std::unique_ptr<ExprAST> RHS)
     : op(op), left(std::move(LHS)), right(std::move(RHS)) {}
 
-  const ExprAST* getLeft() const { return left.get(); }
-  const ExprAST* getRight() const { return right.get(); }
-  std::string getOp() const { return op; }
+  void print(int indent) { 
+    left->print(indent+1);
+    printIndent(indent); 
+    printf("%s\n", op);
+    right->print(indent+1);
+  }
 };
 
 class ExprStmtAST : public StmtAST {
@@ -71,6 +75,10 @@ class ExprStmtAST : public StmtAST {
   public:
   ExprStmtAST(std::unique_ptr<ExprAST>& expression) : _expression(std::move(expression)) {  }
   ExprStmtAST() : _expression(std::make_unique<ExprAST>(nullptr)) {  }
+
+  void print(int indent) {
+    _expression->print(indent);
+  }
 };
 
 class BlockItemListAST : public StmtAST {
@@ -80,6 +88,12 @@ class BlockItemListAST : public StmtAST {
   BlockItemListAST() {}
   void insertStatement(std::unique_ptr<StmtAST>& stmt) {
     _statements.push_back(std::move(stmt));
+  }
+
+  void print(int indent) {
+    for(int i = 0; i<_statements.size();i++) {
+      _statements[i]->print(indent);
+    }
   }
 };
 
@@ -97,6 +111,11 @@ class IdDeclaratorAST : public NodeAST {
 
   public:
   IdDeclaratorAST(const std::string& name) : _name(name) {  }
+
+  void print(int indent) {
+    printIndent(indent);
+    printf("ID:%s\n", _name);
+  }
 };
 
 class ParamListAST : public NodeAST {
@@ -110,6 +129,17 @@ class ParamListAST : public NodeAST {
   }
   void updateEllipsis(bool isellipsis) {
     _isEllipsis = isellipsis;
+  }
+  void print(int indent) {
+    printIndent(indent);
+    printf("ParameterList\n");
+    for(int i=0;i<_params.size();i++) {
+      _params[i]->print(indent+1);
+    }
+    if (_isEllipsis == true) {
+      printIndent(indent+1);
+      printf("...\n");
+    }
   }
 };
 
