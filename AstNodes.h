@@ -19,8 +19,16 @@ class RootAST : public NodeAST {
   std::vector<std::unique_ptr<ExternalDecls>> _extern_units;    
 
   public:
-  insertExternalUnit(std::unique_ptr<ExternalDecls> &unit) {
+  void insertExternalUnit(std::unique_ptr<ExternalDecls> &unit) {
     _extern_units.push_back(std::move(unit));
+  }
+
+  void print(int indent) {
+    printIndent(indent);
+    printf("External units\n");
+    for(int i=0 ;i<_extern_units.size(); i++) {
+      _extern_units[i]->print(indent+1);
+    }
   }
 };
 
@@ -196,13 +204,21 @@ class DeclarationAST : public NodeAST {
 };
 
 class FunctionDefinitionAST : public ExternalDecls {
-  std::unique_ptr<DeclSpecifierAST> _decl_specs
+  std::unique_ptr<DeclSpecifierAST> _decl_specs;
   std::unique_ptr<DirectDeclaratorAST> _declarators;
   std::unique_ptr<BlockItemListAST> _compound_stmts;
 
   public:
   FunctionDefinitionAST(std::unique_ptr<DeclSpecifierAST> &declspecs, std::unique_ptr<DirectDeclaratorAST> &decls, std::unique_ptr<BlockItemListAST> &stmts) :
     _decl_specs(std::move(declspecs)), _declarators(std::move(decls)), _compound_stmts(std::move(stmts)) {  }
+
+  void print(int indent) {
+    printIndent(indent);
+    printf("Function Definition\n");
+    if (_decl_specs != nullptr) _decl_specs->print(indent+1);
+    if (_declarators != nullptr) _declarators->print(indent+1);
+    if (_compound_stmts != nullptr) _compound_stmts->print(indent+1);
+  }
 };
 
 
