@@ -2,15 +2,25 @@
 #include <vector>
 #include <memory>
 
+enum class NodeType {
+  Expr,
+  IntegerExpr,
+  DoubleExpr,
+  Identifier,
+  BinaryExpr
+};
 
 //Base class for all nodes
 class NodeAST {
   public:
     virtual ~NodeAST() = default;
+    virtual NodeType getType() const = 0;
 };
 
 //Base class for all exressions
 class ExprAST : public NodeAST {
+  public:
+    NodeType getType() const override { return NodeType::Expr; }
 };
 
 // Base class for all statements
@@ -23,6 +33,8 @@ class IntegerExprAST : public ExprAST {
 
   public:
   IntegerExprAST(int Val) : val(Val) {}
+
+  int getVal() const { return val; }
 };
 
 class DoubleExprAST : public ExprAST {
@@ -45,8 +57,12 @@ class BinaryExprAST : public ExprAST {
   std::unique_ptr<ExprAST> left, right;
 
   public:
-  BinaryExprAST(std::string op, std::unique_ptr<ExprAST> LHS, std::unique_ptr<ExprAST> RHS)
+  BinaryExprAST(const std::string& op, std::unique_ptr<ExprAST> LHS, std::unique_ptr<ExprAST> RHS)
     : op(op), left(std::move(LHS)), right(std::move(RHS)) {}
+
+  const ExprAST* getLeft() const { return left.get(); }
+  const ExprAST* getRight() const { return right.get(); }
+  std::string getOp() const { return op; }
 };
 
 class ExprStmtAST : public StmtAST {
@@ -62,7 +78,7 @@ class BlockItemListAST : public StmtAST {
 
   public:
   BlockItemListAST() {}
-  insertStatement(std::unique_ptr<StmtAST>& stmt) {
+  void insertStatement(std::unique_ptr<StmtAST>& stmt) {
     _statements.push_back(std::move(stmt));
   }
 };
@@ -85,19 +101,24 @@ class IdDeclaratorAST : public NodeAST {
 
 class ParamListAST : public NodeAST {
   bool _isEllipsis;
-  std::vector<ParamDeclAST> _params;
+  std::vector<std::unique_ptr<ParamDeclAST>> _params;
 
   public:
-  ParamDeclAST(bool isellipsis) : _isEllipsis(isellipsis) {  }
-  insertParam(std::unique_ptr<ParamDeclAST>& param) 
-  {
+  ParamListAST(bool isellipsis) : _isEllipsis(isellipsis) {  }
+  void insertParam(std::unique_ptr<ParamDeclAST>& param) {
     _params.push_back(std::move(param));
+  }
+  void updateEllipsis(bool isellipsis) {
+    _isEllipsis = isellipsis;
   }
 };
 
 class ParamDeclAST : public NodeAST {
   std::unique_ptr<DeclSpecifierAST> _specs;
-  std::unique_ptr<DirectDeclaratorAST> _decl;     
+  std::unique_ptr<DirectDeclaratorAST> _decl;  
+
+  public:
+  ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs, std::unique_ptr<DirectDeclaratorAST>& decl) : _specs(std::move(specs)), _decl(std::move(decl)) {}   
 };
 
 class DeclarationAST : public NodeAST {
@@ -108,6 +129,17 @@ class FunctionDefinitionAST : public  NodeAST {
   
 };
 
-class DeclSpecifierAST : public NodeAST {
+enum TypeQualifier {
+  CONST,
+  RESTRICT,
+  VOLATILE,
+  ATOMIC
+};
 
+class DeclSpecifierAST : public NodeAST {
+  std::unique_ptr<TypeQualifier> _qualifier;
+  std::unique_ptr<TypeSpecifier> _specifier;
+
+  public:
+  DeclSpecifierAST(std::unique_ptr<TypeQualifier>& qualifier, std::unique_ptr<TypeSpecifier>& specifier) : _qualifier(std::move(qualifier)), _specifier(std::move(specifier)) {}
 };

@@ -18,6 +18,8 @@ void yyerror(const char *s);
   std::unique_ptr<ExprAST> expression;
   std::unique_ptr<IdentifierAST> identifier;
   std::unique_ptr<BlockItemListAST> block_list;
+  std::unique_ptr<ParamListAST> param_list;
+  std::unique_ptr<ParamDeclAST> param_decl;
   int int_token;
   double double_token;
   std::unique_ptr<std::string> str_token;
@@ -48,6 +50,8 @@ void yyerror(const char *s);
 %type <expression> equality_expression and_expression exclusive_or_expression inclusive_or_expression constant_expression
 %type <expression> logical_and_expression logical_or_expression conditional_expression assignment_expression expression 
 %type <expression> constant string
+%type <param_list> parameter_type_list parameter_list
+%type <param_decl> parameter_declaration
 
 %start translation_unit
 %%
@@ -393,19 +397,18 @@ type_qualifier_list
 	| type_qualifier_list type_qualifier
 	;
 
-
 parameter_type_list
-	: parameter_list ',' ELLIPSIS
-	| parameter_list
+	: parameter_list ',' ELLIPSIS { $1->updateEllipsis(true); $$ = $1; }
+	| parameter_list { $$ = $1 }
 	;
 
 parameter_list
-	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	: parameter_declaration { $$ = std::make_unique<ParamListAST>(false); $$->insertParam($1); }
+	| parameter_list ',' parameter_declaration { $1->insertParam($3); $$ = $1; }
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
+	: declaration_specifiers declarator { $$ = std::make_unique<ParamDeclAST>($1, $2); }
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers
 	;
