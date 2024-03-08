@@ -417,7 +417,7 @@ parameter_list
 parameter_declaration
   : declaration_specifiers declarator { $$ = std::make_unique<ParamDeclAST>($1, $2); }
   | declaration_specifiers abstract_declarator
-  | declaration_specifiers
+  | declaration_specifiers { $$ = std::make_unique<ParamDeclAST>($1); }
   ;
 
 identifier_list

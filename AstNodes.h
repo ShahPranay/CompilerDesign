@@ -81,7 +81,7 @@ class ExprStmtAST : public StmtAST {
   ExprStmtAST() : _expression(std::make_unique<ExprAST>(nullptr)) {  }
 
   void print(int indent) {
-    _expression->print(indent);
+    if (_expression != nullptr) _expression->print(indent);
   }
 };
 
@@ -90,6 +90,7 @@ class BlockItemListAST : public StmtAST {
 
   public:
   BlockItemListAST() {}
+
   void insertStatement(std::unique_ptr<StmtAST>& stmt) {
     _statements.push_back(std::move(stmt));
   }
@@ -111,7 +112,14 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
 
   public:
   FunctionDeclaratorAST(std::unique_ptr<DirectDeclaratorAST> &identifier_decl, std::unique_ptr<ParamListAST> &paramlist) :
-    _identifier(identifier_decl), _paramlist(paramlist) {  }
+    _identifier(std::move(identifier_decl)), _paramlist(std::move(paramlist)) {  }
+
+  void print(int indent) {
+    printIndent(indent);
+    printf("FunctionDeclarator\n");
+    if (_identifier != nullptr) _identifier->print(indent+1);
+    if (_paramlist != nullptr) _paramlist->print(indent+1);
+  }
 };
 
 class IdDeclaratorAST : public NodeAST {
@@ -142,8 +150,10 @@ class ParamListAST : public NodeAST {
   }
 
   void print(int indent) {
-    printIndent(indent);
-    printf("ParameterList\n");
+    if (_params.size()>0 || _isEllipsis == true) {
+      printIndent(indent);
+      printf("ParameterList\n");
+    }
     for(int i=0;i<_params.size();i++) {
       _params[i]->print(indent+1);
     }
@@ -160,6 +170,15 @@ class ParamDeclAST : public NodeAST {
 
   public:
   ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs, std::unique_ptr<DirectDeclaratorAST>& decl) : _specs(std::move(specs)), _decl(std::move(decl)) {}   
+
+  ParamDeclAST(std::unique_ptr<DeclSpecifierAST>& specs) : _specs(std::move(specs)) {}  
+
+  void print(int indent) {
+    printIndent(indent);
+    printf("Parameter\n");
+    if (_specs != nullptr) _specs->print(indent+1);
+    if (_decl != nullptr) _decl->print(indent+1);
+  }
 };
 
 class DeclarationAST : public NodeAST {
@@ -179,6 +198,11 @@ class TypeQualifierAST : public SpecifierAST {
 
   public:
   TypeQualifierAST(std::string name) : _qual_name(name) {  }
+
+  void print(int indent) {
+    printIndent(indent);
+    printf("Type Qualifier : %s", _qual_name);
+  }
 };
 
 class TypeSpecifierAST : public SpecifierAST {
@@ -189,6 +213,11 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
   
   public:
   PrimitiveTypeSpecAST(std::string type_name) : _type_name ( type_name ) {  }
+
+  void print(int indent) {
+    printIndent(indent);
+    printf("Type Specifier : %s", _type_name);
+  }
 };
 
 class DeclSpecifierAST : public NodeAST {
@@ -197,5 +226,10 @@ class DeclSpecifierAST : public NodeAST {
 
   public:
   DeclSpecifierAST(std::unique_ptr<SpecifierAST> &cur_specifier, std::unique_ptr<DeclSpecifierAST> &next) :
-    _cur_specifier(cur_specifier), _next(next) {  }
+    _cur_specifier(std::move(cur_specifier)), _next(std::move(next)) {  }
+
+  void print(int indent) {
+    _cur_specifier->print(indent);
+    if (_next != nullptr) _next->print(indent);
+  }
 };
