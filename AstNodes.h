@@ -313,19 +313,16 @@ class InitDeclaratorAST : public NodeAST {
   // TODO: class to store initializer
 
   public:
-    InitDeclaratorAST(DirectDeclaratorAST* ddecl) : _direct_decl(ddecl), _initializer(nullptr) { cout<<"hdhdhd"<<endl; }
-    InitDeclaratorAST(DirectDeclaratorAST* ddecl, InitializerAST* initdecl) : _direct_decl(ddecl), _initializer(initdecl) { cout<<"jajajaaj"<<endl; }
+    InitDeclaratorAST(DirectDeclaratorAST* ddecl) : _direct_decl(ddecl), _initializer(nullptr) {  }
+    InitDeclaratorAST(DirectDeclaratorAST* ddecl, InitializerAST* initdecl) : _direct_decl(ddecl), _initializer(initdecl) {  }
 
     virtual void print(int indent) {
-      cout<<"why the fuck 3"<< endl;
       if (_initializer) {
-        cout<<"why the fuck 2"<< endl;
         _direct_decl->print(indent+1);
         printIndent(indent);
         cout << "Op : =" << endl;
         _initializer->print(indent+1);
       } else {
-        cout<<"why the fuck"<< endl;
         _direct_decl->print(indent);
       }
     }

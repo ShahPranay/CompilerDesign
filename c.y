@@ -26,10 +26,10 @@ RootAST* AST_root;
   SpecifierAST* specifier;
   DeclSpecifierAST* decl_specs;
   ExternalDecls* external_decls;
-  DeclarationAST* declaration;
+  DeclarationAST* declaration_ast;
   InitDeclaratorListAST* init_decl_list;
   InitDeclaratorAST* init_decl;
-  InitializerAST* initializer;
+  InitializerAST* initializer_ast;
 
   int int_token;
   double double_token;
@@ -69,10 +69,10 @@ RootAST* AST_root;
 %type <direct_decl> direct_declarator declarator
 %type <decl_specs> declaration_specifiers;
 %type <external_decls> function_definition external_declaration
-%type <declaration> declaration
+%type <declaration_ast> declaration
 %type <init_decl_list> init_declarator_list
 %type <init_decl> init_declarator
-%type <initializer> initializer 
+%type <initializer_ast> initializer 
 
 %start translation_unit
 
@@ -273,8 +273,8 @@ init_declarator_list
   ;
 
 init_declarator
-  : declarator '=' initializer { new InitDeclaratorAST($1, $3); }
-  | declarator { new InitDeclaratorAST($1); }
+  : declarator '=' initializer { $$ = new InitDeclaratorAST($1, $3); }
+  | declarator { $$ = new InitDeclaratorAST($1); }
   ;
 
 storage_class_specifier
