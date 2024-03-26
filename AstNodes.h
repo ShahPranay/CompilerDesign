@@ -139,50 +139,6 @@ class BlockItemListAST : public NodeAST {
   }
 };
 
-class DeclarationAST : public BlockItemAST {
-};
-
-class NormalDeclAST : DeclarationAST {
-  DeclSpecifierAST* _specs;
-  InitDeclaratorListAST* _init_decl_list;
-
-  public:
-    NormalDeclAST(DeclSpecifierAST* declspecs) : _specs(declspecs), _init_decl_list(nullptr) {  }
-    NormalDeclAST(DeclSpecifierAST* declspecs, InitDeclaratorListAST* init_list) : _specs(declspecs), _init_decl_list(init_list) {  }
-  // DeclSpecifierAST
-  // list of init_declarator
-};
-
-class StaticAssertDeclAST : DeclarationAST {
-
-};
-
-class InitDeclaratorListAST : public NodeAST {
-  std::vector<InitDeclaratorAST*> _init_declarators;
-  public:
-    InitDeclaratorListAST() {  }
-    void insertInitDeclarator(InitDeclaratorAST* cur_init_decl) { _init_declarators.push_back(cur_init_decl); }
-};
-
-class InitDeclaratorAST : public NodeAST {
-  DirectDeclaratorAST* _direct_decl;
-  // TODO: class to store initializer
-
-  public:
-    InitDeclaratorAST(DirectDeclaratorAST* ddecl) : _direct_decl(ddecl) {  }
-};
-
-class InitializerAST : public NodeAST {
-  InitializerListAST* _init_list;
-  ExprAST* _assignment_expression;
-  public:
-    InitializerAST(ExprAST* ass_expr) : _init_list(nullptr), _assignment_expression(ass_expr) {  }  
-    InitializerAST(InitializerListAST* init_list) : _init_list(init_list), _assignment_expression(nullptr) {  }
-};
-
-class InitializerListAST : public NodeAST {
-  // TODO: implement
-};
 
 class DirectDeclaratorAST : public NodeAST {
   // TODO: class to store pointer
@@ -332,4 +288,54 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
     cout << "Type Specifier : " << _type_name << endl;
   }
 };
+
+class InitializerListAST : public NodeAST {
+  // TODO: implement
+};
+
+class InitializerAST : public NodeAST {
+  InitializerListAST* _init_list;
+  ExprAST* _assignment_expression;
+  public:
+    InitializerAST(ExprAST* ass_expr) : _init_list(nullptr), _assignment_expression(ass_expr) {  }  
+    InitializerAST(InitializerListAST* init_list) : _init_list(init_list), _assignment_expression(nullptr) {  }
+};
+
+
+class InitDeclaratorAST : public NodeAST {
+  DirectDeclaratorAST* _direct_decl;
+  InitializerAST* _initializer;
+  // TODO: class to store initializer
+
+  public:
+    InitDeclaratorAST(DirectDeclaratorAST* ddecl) : _direct_decl(ddecl) {  }
+    InitDeclaratorAST(DirectDeclaratorAST* ddecl, InitializerAST* initdecl) : _direct_decl(ddecl), _initializer(initdecl) {  }
+};
+
+class InitDeclaratorListAST : public NodeAST {
+  std::vector<InitDeclaratorAST*> _init_declarators;
+  public:
+    InitDeclaratorListAST() {  }
+    void insertInitDeclarator(InitDeclaratorAST* cur_init_decl) { _init_declarators.push_back(cur_init_decl); }
+};
+
+class DeclarationAST : public BlockItemAST {
+};
+
+class NormalDeclAST : public DeclarationAST {
+  DeclSpecifierAST* _specs;
+  InitDeclaratorListAST* _init_decl_list;
+
+  public:
+    NormalDeclAST(DeclSpecifierAST* declspecs) : _specs(declspecs), _init_decl_list(nullptr) {  }
+    NormalDeclAST(DeclSpecifierAST* declspecs, InitDeclaratorListAST* init_list) : _specs(declspecs), _init_decl_list(init_list) {  }
+  // DeclSpecifierAST
+  // list of init_declarator
+};
+
+class StaticAssertDeclAST : public DeclarationAST {
+
+};
+
+
 

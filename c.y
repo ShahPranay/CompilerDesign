@@ -29,6 +29,7 @@ RootAST* AST_root;
   DeclarationAST* declaration;
   InitDeclaratorListAST* init_decl_list;
   InitDeclaratorAST* init_decl;
+  InitializerAST* initializer;
 
   int int_token;
   double double_token;
@@ -71,6 +72,7 @@ RootAST* AST_root;
 %type <declaration> declaration
 %type <init_decl_list> init_declarator_list
 %type <init_decl> init_declarator
+%type <initializer> initializer 
 
 %start translation_unit
 
@@ -271,8 +273,8 @@ init_declarator_list
   ;
 
 init_declarator
-  : declarator '=' initializer
-  | declarator
+  : declarator '=' initializer { new InitDeclaratorAST($1, $3); }
+  | declarator { new InitDeclaratorAST($1); }
   ;
 
 storage_class_specifier
@@ -475,7 +477,7 @@ direct_abstract_declarator
 initializer
   : '{' initializer_list '}'
   | '{' initializer_list ',' '}'
-  | assignment_expression
+  | assignment_expression { $$ = new InitializerAST($1); }
   ;
 
 initializer_list
@@ -524,8 +526,8 @@ compound_statement
   ;
 
 block_item_list
-  : block_item { $$ = new BlockItemListAST(); $$->insertStatement($1); }
-  | block_item_list block_item { $1->insertStatement($2); $$ = $1; }
+  : block_item { $$ = new BlockItemListAST(); $$->insertBlockItem($1); }
+  | block_item_list block_item { $1->insertBlockItem($2); $$ = $1; }
   ;
 
 block_item
