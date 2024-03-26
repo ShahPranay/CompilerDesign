@@ -11,7 +11,7 @@ class NodeAST {
   public:
     virtual ~NodeAST() = default;
     virtual void print(int indent) { };
-    void printIndent(int indent) {
+    virtual void printIndent(int indent) {
       for(int i=0; i<indent ; i++) {
         cout << "|  ";
     }
@@ -30,7 +30,7 @@ class RootAST : public NodeAST {
     _extern_units.push_back(unit);
   }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     printIndent(indent);
     cout << "External Units" << endl;
     for(int i=0 ;i<_extern_units.size(); i++) {
@@ -59,7 +59,7 @@ class IntegerExprAST : public ExprAST {
   public:
   IntegerExprAST(int Val) : val(Val) {  }
 
-  void print(int indent) { 
+  virtual void print(int indent) { 
     printIndent(indent);
     cout << "Val : " << val << endl; 
   }
@@ -71,7 +71,7 @@ class DoubleExprAST : public ExprAST {
   public:
   DoubleExprAST(double Val) : val(Val) {}
 
-  void print(int indent) { 
+  virtual void print(int indent) { 
     printIndent(indent); 
     cout << "Val : " << val << endl; 
   }
@@ -83,7 +83,7 @@ class IdentifierAST : public ExprAST {
   public:
   IdentifierAST(const std::string& name) : _name( name ) {  }
 
-  void print(int indent) { 
+  virtual void print(int indent) { 
     printIndent(indent); 
     cout << "ID : " << _name << endl; 
   }
@@ -98,7 +98,7 @@ class BinaryExprAST : public ExprAST {
   BinaryExprAST(const std::string& op, ExprAST* LHS, ExprAST* RHS)
     : op(op), left(LHS), right(RHS) {}
 
-  void print(int indent) { 
+  virtual void print(int indent) { 
     left->print(indent+1);
 
     printIndent(indent); 
@@ -115,7 +115,7 @@ class ExprStmtAST : public StmtAST {
   ExprStmtAST(ExprAST*& expression) : _expression(expression) {  }
   ExprStmtAST() : _expression(nullptr) {  }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     if (_expression != nullptr) _expression->print(indent);
   }
 };
@@ -130,7 +130,7 @@ class BlockItemListAST : public NodeAST {
     _items.push_back(item);
   }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     for(int i = 0; i<_items.size();i++) {
       printIndent(indent);
       cout << "Statement " << i+1 << endl;
@@ -158,7 +158,7 @@ class DeclSpecifierAST : public NodeAST {
 
   DeclSpecifierAST(SpecifierAST* &cur_specifier) : _cur_specifier ( cur_specifier)  {  }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     _cur_specifier->print(indent);
     if (_next != nullptr) _next->print(indent);
   }
@@ -174,7 +174,7 @@ class ParamDeclAST : public NodeAST {
 
   ParamDeclAST(DeclSpecifierAST*& specs) : _specs(specs) {}  
 
-  void print(int indent) {
+  virtual void print(int indent) {
     printIndent(indent);
     cout << "Parameter" << endl;
     if (_specs != nullptr) _specs->print(indent+1);
@@ -197,7 +197,7 @@ class ParamListAST : public NodeAST {
     _isEllipsis = isellipsis;
   }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     if (_params.size()>0 || _isEllipsis == true) {
       printIndent(indent);
       cout << "ParameterList" << endl;
@@ -209,7 +209,7 @@ class ParamListAST : public NodeAST {
 
     if (_isEllipsis == true) {
       printIndent(indent+1);
-      cout << "..." << endl;
+      cout << "Ellipsis" << endl;
     }
   }
 };
@@ -222,7 +222,7 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
   FunctionDeclaratorAST(DirectDeclaratorAST* &identifier_decl, ParamListAST* &paramlist) :
     _identifier(identifier_decl), _paramlist(paramlist) {  }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     printIndent(indent);
     cout << "Function Declarator" << endl;
 
@@ -237,7 +237,7 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
   public:
   IdDeclaratorAST(const std::string& name) : _name(name) { }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     printIndent(indent);
     cout << "ID : " << _name << endl;
   }
@@ -252,7 +252,7 @@ class FunctionDefinitionAST : public ExternalDecls {
   FunctionDefinitionAST(DeclSpecifierAST* &declspecs, DirectDeclaratorAST* &decls, BlockItemListAST* &stmts) :
     _decl_specs(declspecs), _declarators(decls), _compound_stmts(stmts) {  }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     printIndent(indent);
     cout << "Function Definition" << endl;
     
@@ -268,7 +268,7 @@ class TypeQualifierAST : public SpecifierAST {
   public:
   TypeQualifierAST(std::string name) : _qual_name(name) {  }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     printIndent(indent);
     cout << "Type Qualifier : " << _qual_name << endl;
   }
@@ -283,7 +283,7 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
   public:
   PrimitiveTypeSpecAST(std::string type_name) : _type_name ( type_name ) { }
 
-  void print(int indent) {
+  virtual void print(int indent) {
     printIndent(indent);
     cout << "Type Specifier : " << _type_name << endl;
   }
@@ -297,8 +297,13 @@ class InitializerAST : public NodeAST {
   InitializerListAST* _init_list;
   ExprAST* _assignment_expression;
   public:
-    InitializerAST(ExprAST* ass_expr) : _init_list(nullptr), _assignment_expression(ass_expr) {  }  
+    InitializerAST(ExprAST* ass_expr) : _init_list(nullptr), _assignment_expression(ass_expr) { }  
     InitializerAST(InitializerListAST* init_list) : _init_list(init_list), _assignment_expression(nullptr) {  }
+
+    virtual void print(int indent) {
+      if (_init_list != nullptr) _init_list->print(indent);
+      else _assignment_expression->print(indent);
+  }
 };
 
 
@@ -308,8 +313,22 @@ class InitDeclaratorAST : public NodeAST {
   // TODO: class to store initializer
 
   public:
-    InitDeclaratorAST(DirectDeclaratorAST* ddecl) : _direct_decl(ddecl) {  }
-    InitDeclaratorAST(DirectDeclaratorAST* ddecl, InitializerAST* initdecl) : _direct_decl(ddecl), _initializer(initdecl) {  }
+    InitDeclaratorAST(DirectDeclaratorAST* ddecl) : _direct_decl(ddecl), _initializer(nullptr) { cout<<"hdhdhd"<<endl; }
+    InitDeclaratorAST(DirectDeclaratorAST* ddecl, InitializerAST* initdecl) : _direct_decl(ddecl), _initializer(initdecl) { cout<<"jajajaaj"<<endl; }
+
+    virtual void print(int indent) {
+      cout<<"why the fuck 3"<< endl;
+      if (_initializer) {
+        cout<<"why the fuck 2"<< endl;
+        _direct_decl->print(indent+1);
+        printIndent(indent);
+        cout << "Op : =" << endl;
+        _initializer->print(indent+1);
+      } else {
+        cout<<"why the fuck"<< endl;
+        _direct_decl->print(indent);
+      }
+    }
 };
 
 class InitDeclaratorListAST : public NodeAST {
@@ -317,6 +336,14 @@ class InitDeclaratorListAST : public NodeAST {
   public:
     InitDeclaratorListAST() {  }
     void insertInitDeclarator(InitDeclaratorAST* cur_init_decl) { _init_declarators.push_back(cur_init_decl); }
+
+    virtual void print(int indent) {
+      printIndent(indent);
+      cout << "Init Declarators" << endl;
+      for(int i=0; i<_init_declarators.size(); i++) {
+        _init_declarators[i]->print(indent+1);
+      }
+    }
 };
 
 class DeclarationAST : public BlockItemAST {
@@ -331,6 +358,12 @@ class NormalDeclAST : public DeclarationAST {
     NormalDeclAST(DeclSpecifierAST* declspecs, InitDeclaratorListAST* init_list) : _specs(declspecs), _init_decl_list(init_list) {  }
   // DeclSpecifierAST
   // list of init_declarator
+    virtual void print(int indent) {
+      printIndent(indent);
+      cout << "Declaration Specifiers " << endl;
+      _specs->print(indent+1);
+      if (_init_decl_list != nullptr) _init_decl_list->print(indent+1);
+    }
 };
 
 class StaticAssertDeclAST : public DeclarationAST {
