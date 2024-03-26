@@ -44,8 +44,12 @@ class RootAST : public NodeAST {
 class ExprAST : public NodeAST {
 };
 
+class BlockItemAST : public NodeAST {
+
+};
+
 // Base class for all statements
-class StmtAST : public NodeAST {
+class StmtAST : public BlockItemAST {
 
 };
 
@@ -116,14 +120,14 @@ class ExprStmtAST : public StmtAST {
   }
 };
 
-class BlockItemListAST : public StmtAST {
-  std::vector<StmtAST*> _statements;
+class BlockItemListAST : public NodeAST {
+  std::vector<BlockItemAST*> _items;
 
   public:
   BlockItemListAST() {}
 
-  void insertStatement(StmtAST*& stmt) {
-    _statements.push_back(stmt);
+  void insertBlockItem(BlockItemAST *item) {
+    _items.push_back(item);
   }
 
   void print(int indent) {
@@ -135,9 +139,55 @@ class BlockItemListAST : public StmtAST {
   }
 };
 
-class DirectDeclaratorAST : public NodeAST { 
-  
+class DeclarationAST : public BlockItemAST {
 };
+
+class NormalDeclAST : DeclarationAST {
+  DeclSpecifierAST* _specs;
+  InitDeclaratorListAST* _init_decl_list;
+
+  public:
+    NormalDeclAST(DeclSpecifierAST* declspecs) : _specs(declspecs), _init_decl_list(nullptr) {  }
+    NormalDeclAST(DeclSpecifierAST* declspecs, InitDeclaratorListAST* init_list) : _specs(declspecs), _init_decl_list(init_list) {  }
+  // DeclSpecifierAST
+  // list of init_declarator
+};
+
+class StaticAssertDeclAST : DeclarationAST {
+
+};
+
+class InitDeclaratorListAST : public NodeAST {
+  std::vector<InitDeclaratorAST*> _init_declarators;
+  public:
+    InitDeclaratorListAST() {  }
+    insertInitDeclarator(InitDeclaratorAST* cur_init_decl) { _init_declarators.push_back(cur_init_decl); }
+};
+
+class InitDeclaratorAST : public NodeAST {
+  DirectDeclaratorAST* _direct_decl;
+  // TODO: class to store initializer
+
+  public:
+    InitDeclaratorAST(DirectDeclaratorAST* ddecl) : _direct_decl(ddecl) {  }
+};
+
+class InitializerAST : public NodeAST {
+  InitializerListAST* _init_list;
+  ExprAST* _assignment_expression;
+  public:
+    InitializerAST(ExprAST* ass_expr) : _init_list(nullptr), _assignment_expression(ass_expr) {  }  
+    InitializerAST(InitializerListAST* init_list) : _init_list(init_list), _assignment_expression(nullptr) {  }
+};
+
+class InitializerListAST : public NodeAST {
+  // TODO: implement
+};
+
+class DirectDeclaratorAST : public NodeAST {
+  // TODO: class to store pointer
+};
+
 
 class SpecifierAST : public NodeAST {
 };
@@ -236,13 +286,6 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
     cout << "ID : " << _name << endl;
   }
 };
-
-
-
-class DeclarationAST : public NodeAST {
-
-};
-
 
 class FunctionDefinitionAST : public ExternalDecls {
   DeclSpecifierAST* _decl_specs;

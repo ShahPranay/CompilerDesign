@@ -26,6 +26,10 @@ RootAST* AST_root;
   SpecifierAST* specifier;
   DeclSpecifierAST* decl_specs;
   ExternalDecls* external_decls;
+  DeclarationAST* declaration;
+  InitDeclaratorListAST* init_decl_list;
+  InitDeclaratorAST* init_decl;
+
   int int_token;
   double double_token;
   std::string* str_token;
@@ -64,6 +68,9 @@ RootAST* AST_root;
 %type <direct_decl> direct_declarator declarator
 %type <decl_specs> declaration_specifiers;
 %type <external_decls> function_definition external_declaration
+%type <declaration> declaration
+%type <init_decl_list> init_declarator_list
+%type <init_decl> init_declarator
 
 %start translation_unit
 
@@ -214,7 +221,7 @@ conditional_expression
 
 assignment_expression
   : conditional_expression
-  | unary_expression assignment_operator assignment_expression
+  | unary_expression assignment_operator assignment_expression { $$ = new BinaryExprAST("=", $1, $3); /* TODO: enum class for assignment_operator */}
   ;
 
 assignment_operator
@@ -233,16 +240,15 @@ assignment_operator
 
 expression
   : assignment_expression
-  | expression ',' assignment_expression
-  ;
+  | expression ',' assignment_expression ;
 
 constant_expression
   : conditional_expression	/* with constraints */
   ;
 
 declaration
-  : declaration_specifiers ';'
-  | declaration_specifiers init_declarator_list ';'
+  : declaration_specifiers ';' { $$ = new NormalDeclAST($1); }
+  | declaration_specifiers init_declarator_list ';' { $$ = new NormalDeclAST($1, $2); }
   | static_assert_declaration
   ;
 
@@ -260,8 +266,8 @@ declaration_specifiers
   ;
 
 init_declarator_list
-  : init_declarator
-  | init_declarator_list ',' init_declarator
+  : init_declarator { $$ = new InitDeclaratorListAST(); $$->insertInitDeclarator($1);}
+  | init_declarator_list ',' init_declarator { $$ = $1; $$->insertInitDeclarator($3); }
   ;
 
 init_declarator

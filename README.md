@@ -23,6 +23,15 @@ This class stores a vector of `ParamDeclAST*` objects each of which correspond t
 ### DeclSpecifierAST
 These are the nodes of a linked list. Each of them holds a `Specifier*`.
 
+### Why a linked list for declaration\_specifiers and a vector for block\_item\_list ?
+
+The production rule for declaration\_specifiers produces the current specifier first and then recursively
+produces the remaining decl specifiers. Thus, to maintain the order we have to append the current specifier
+before the remaining list. 
+
+In the case of block\_item\_list the order is maintained if we append the current statement after the 
+list.
+
 ### Specifier
 Produces the type specifer among other things. We have a derived class for different kinds. 
 `PrimitiveTypeSpecAST`, for example, is used to specify the primitive types like `int`, `char` etc.
