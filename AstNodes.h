@@ -359,7 +359,7 @@ class NormalDeclAST : public DeclarationAST {
       printIndent(indent);
       cout << "Declaration Specifiers " << endl;
       _specs->print(indent+1);
-      if (_init_decl_list != nullptr) _init_decl_list->print(indent+1);
+      if (_init_decl_list != nullptr) _init_decl_list->print(indent);
     }
 };
 
