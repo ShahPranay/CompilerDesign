@@ -131,10 +131,10 @@ class BlockItemListAST : public NodeAST {
   }
 
   void print(int indent) {
-    for(int i = 0; i<_statements.size();i++) {
+    for(int i = 0; i<_items.size();i++) {
       printIndent(indent);
       cout << "Statement " << i+1 << endl;
-      _statements[i]->print(indent+1);
+      _items[i]->print(indent+1);
     }
   }
 };
@@ -161,7 +161,7 @@ class InitDeclaratorListAST : public NodeAST {
   std::vector<InitDeclaratorAST*> _init_declarators;
   public:
     InitDeclaratorListAST() {  }
-    insertInitDeclarator(InitDeclaratorAST* cur_init_decl) { _init_declarators.push_back(cur_init_decl); }
+    void insertInitDeclarator(InitDeclaratorAST* cur_init_decl) { _init_declarators.push_back(cur_init_decl); }
 };
 
 class InitDeclaratorAST : public NodeAST {
