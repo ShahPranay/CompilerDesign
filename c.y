@@ -31,6 +31,11 @@ RootAST* AST_root;
   InitDeclaratorAST* init_decl;
   InitializerAST* initializer_ast;
 
+  TypeQualListAST* type_qual_list;
+  TypeQualifierAST* type_qual;
+
+  PointerAST* ptr_ast;
+
   int int_token;
   double double_token;
   std::string* str_token;
@@ -65,7 +70,9 @@ RootAST* AST_root;
 
 %type <param_list> parameter_type_list parameter_list
 %type <param_decl> parameter_declaration
-%type <specifier> type_specifier type_qualifier storage_class_specifier function_specifier alignment_specifier
+%type <specifier> type_specifier storage_class_specifier function_specifier alignment_specifier
+%type <type_qual> type_qualifier
+%type <type_qual_list> type_qualifier_list
 %type <direct_decl> direct_declarator declarator
 %type <decl_specs> declaration_specifiers;
 %type <external_decls> function_definition external_declaration
@@ -73,6 +80,7 @@ RootAST* AST_root;
 %type <init_decl_list> init_declarator_list
 %type <init_decl> init_declarator
 %type <initializer_ast> initializer 
+%type <ptr_ast> pointer
 
 %start translation_unit
 
@@ -385,7 +393,7 @@ alignment_specifier
   ;
 
 declarator
-  : pointer direct_declarator { /*$$ = $2; $$->updatePointer($1);*/ }
+  : pointer direct_declarator { $$ = $2; $$->updatePointer($1); }
   | direct_declarator
   ;
 
@@ -407,15 +415,15 @@ direct_declarator
   ;
 
 pointer
-  : '*' type_qualifier_list pointer
-  | '*' type_qualifier_list
-  | '*' pointer
-  | '*'
+  : '*' type_qualifier_list pointer { $$ = $3; $$->pushFrontPointer($2); }
+  | '*' type_qualifier_list { $$ = new PointerAST(); $$->pushFrontPointer($2); }
+  | '*' pointer { $$ = $2; $$->pushFrontPointer(); }
+  | '*' { $$ = new PointerAST(); $$->pushFrontPointer(); }
   ;
 
 type_qualifier_list
-  : type_qualifier
-  | type_qualifier_list type_qualifier
+  : type_qualifier { $$ = new TypeQualListAST(); $$->insertQual($1); }
+  | type_qualifier_list type_qualifier { $$ = $1; $$->insertQual($2); }
   ;
 
 parameter_type_list
