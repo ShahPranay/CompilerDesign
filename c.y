@@ -24,7 +24,7 @@ RootAST* AST_root;
   ParamDeclAST* param_decl;
   DirectDeclaratorAST* direct_decl;
   SpecifierAST* specifier;
-  DeclSpecifierAST* decl_specs;
+  DeclSpecifiersAST* decl_specs;
   ExternalDecls* external_decls;
   DeclarationAST* declaration_ast;
   InitDeclaratorListAST* init_decl_list;
@@ -255,16 +255,16 @@ declaration
   ;
 
 declaration_specifiers
-  : storage_class_specifier declaration_specifiers
-  | storage_class_specifier { $$ = new DeclSpecifierAST($1); } 
-  | type_specifier declaration_specifiers { $$ = new DeclSpecifierAST($1, $2); }
-  | type_specifier { $$ = new DeclSpecifierAST($1); }
-  | type_qualifier declaration_specifiers { $$ = new DeclSpecifierAST($1, $2); }
-  | type_qualifier { $$ = new DeclSpecifierAST($1); }
-  | function_specifier declaration_specifiers
-  | function_specifier { $$ = new DeclSpecifierAST($1); }
-  | alignment_specifier declaration_specifiers
-  | alignment_specifier { $$ = new DeclSpecifierAST($1); }
+  : storage_class_specifier declaration_specifiers { $$ = $2; $$->pushFrontSpecifier($1); }
+  | storage_class_specifier { $$ = new DeclSpecifiersAST($1); } 
+  | type_specifier declaration_specifiers { $$ = $2; $$->pushFrontSpecifier($1); }
+  | type_specifier { $$ = new DeclSpecifiersAST($1); }
+  | type_qualifier declaration_specifiers { $$ = $2; $$->pushFrontSpecifier($1); }
+  | type_qualifier { $$ = new DeclSpecifiersAST($1); }
+  | function_specifier declaration_specifiers { $$ = $2; $$->pushFrontSpecifier($1); }
+  | function_specifier { $$ = new DeclSpecifiersAST($1); }
+  | alignment_specifier declaration_specifiers { $$ = $2; $$->pushFrontSpecifier($1); }
+  | alignment_specifier { $$ = new DeclSpecifiersAST($1); }
   ;
 
 init_declarator_list

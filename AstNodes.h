@@ -2,6 +2,7 @@
 #include <vector>
 #include <memory>
 #include <iostream>
+#include <list>
 
 using std::cout;
 using std::endl;
@@ -148,31 +149,33 @@ class DirectDeclaratorAST : public NodeAST {
 class SpecifierAST : public NodeAST {
 };
 
-class DeclSpecifierAST : public NodeAST {
-  SpecifierAST* _cur_specifier;
-  DeclSpecifierAST* _next;
+class DeclSpecifiersAST : public NodeAST {
+  std::list<SpecifierAST*> _decl_specs;
 
   public:
-  DeclSpecifierAST(SpecifierAST* &cur_specifier, DeclSpecifierAST* &next) :
-    _cur_specifier(cur_specifier), _next(next) {  }
-
-  DeclSpecifierAST(SpecifierAST* &cur_specifier) : _cur_specifier ( cur_specifier)  {  }
+  DeclSpecifiersAST(SpecifierAST* cur_specifier) { _decl_specs.push_back(cur_specifier); }
+  void pushFrontSpecifier(SpecifierAST* nxt_spec) { _decl_specs.push_front(nxt_spec); }
 
   virtual void print(int indent) {
-    _cur_specifier->print(indent);
-    if (_next != nullptr) _next->print(indent);
+    printIndent(indent);
+    cout << "Declaration Specifiers " << endl;
+    indent++;
+    for(auto ptr: _decl_specs)
+    {
+      ptr->print(indent);
+    }
   }
 
 };
 
 class ParamDeclAST : public NodeAST {
-  DeclSpecifierAST* _specs;
+  DeclSpecifiersAST* _specs;
   DirectDeclaratorAST* _decl;  
 
   public:
-  ParamDeclAST(DeclSpecifierAST*& specs, DirectDeclaratorAST*& decl) : _specs(specs), _decl(decl) {}   
+  ParamDeclAST(DeclSpecifiersAST*& specs, DirectDeclaratorAST*& decl) : _specs(specs), _decl(decl) {}   
 
-  ParamDeclAST(DeclSpecifierAST*& specs) : _specs(specs) {}  
+  ParamDeclAST(DeclSpecifiersAST*& specs) : _specs(specs) {}  
 
   virtual void print(int indent) {
     printIndent(indent);
@@ -244,12 +247,12 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
 };
 
 class FunctionDefinitionAST : public ExternalDecls {
-  DeclSpecifierAST* _decl_specs;
+  DeclSpecifiersAST* _decl_specs;
   DirectDeclaratorAST* _declarators;
   BlockItemListAST* _compound_stmts;
 
   public:
-  FunctionDefinitionAST(DeclSpecifierAST* &declspecs, DirectDeclaratorAST* &decls, BlockItemListAST* &stmts) :
+  FunctionDefinitionAST(DeclSpecifiersAST* &declspecs, DirectDeclaratorAST* &decls, BlockItemListAST* &stmts) :
     _decl_specs(declspecs), _declarators(decls), _compound_stmts(stmts) {  }
 
   virtual void print(int indent) {
@@ -347,18 +350,19 @@ class DeclarationAST : public BlockItemAST {
 };
 
 class NormalDeclAST : public DeclarationAST {
-  DeclSpecifierAST* _specs;
+  DeclSpecifiersAST* _specs;
   InitDeclaratorListAST* _init_decl_list;
 
   public:
-    NormalDeclAST(DeclSpecifierAST* declspecs) : _specs(declspecs), _init_decl_list(nullptr) {  }
-    NormalDeclAST(DeclSpecifierAST* declspecs, InitDeclaratorListAST* init_list) : _specs(declspecs), _init_decl_list(init_list) {  }
+    NormalDeclAST(DeclSpecifiersAST* declspecs) : _specs(declspecs), _init_decl_list(nullptr) {  }
+    NormalDeclAST(DeclSpecifiersAST* declspecs, InitDeclaratorListAST* init_list) : _specs(declspecs), _init_decl_list(init_list) {  }
   // DeclSpecifierAST
   // list of init_declarator
     virtual void print(int indent) {
       printIndent(indent);
-      cout << "Declaration Specifiers " << endl;
-      _specs->print(indent+1);
+      cout << "Declaration " << endl;
+      indent++;
+      _specs->print(indent);
       if (_init_decl_list != nullptr) _init_decl_list->print(indent);
     }
 };
