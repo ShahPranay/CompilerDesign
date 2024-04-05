@@ -13,6 +13,8 @@ class NodeAST {
   public:
     virtual ~NodeAST() = default;
     virtual void print(int indent) { };
+    /* virtual llvm::Value* codegen(); */
+
     void printIndent(int indent) {
       for(int i=0; i<indent ; i++) {
         cout << "|  ";
@@ -21,14 +23,15 @@ class NodeAST {
     }
 };
 
-class ExternalDecls : public NodeAST {
+class ExternalDeclsAST : public NodeAST {
 };
 
 class RootAST : public NodeAST {
-  std::vector<ExternalDecls*> _extern_units;    
+  std::vector<ExternalDeclsAST*> _extern_units;    
 
   public:
-  void insertExternalUnit(ExternalDecls* unit) {
+  /* virtual llvm::Value* codegen(); */
+  void insertExternalUnit(ExternalDeclsAST* unit) {
     _extern_units.push_back(unit);
   }
 
@@ -119,6 +122,20 @@ class ExprStmtAST : public StmtAST {
 
   virtual void print(int indent) {
     if (_expression != nullptr) _expression->print(indent);
+  }
+};
+
+class ReturnStmtAST : public StmtAST {
+  ExprAST* _expr; 
+
+  public:
+  ReturnStmtAST() : _expr(nullptr) {  }
+  ReturnStmtAST(ExprAST* expr) : _expr(expr) {  }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "Return\n";
+    _expr->print(indent);
   }
 };
 
@@ -329,7 +346,7 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
   }
 };
 
-class FunctionDefinitionAST : public ExternalDecls {
+class FunctionDefinitionAST : public ExternalDeclsAST {
   DeclSpecifiersAST* _decl_specs;
   DirectDeclaratorAST* _declarators;
   BlockItemListAST* _compound_stmts;
@@ -338,6 +355,7 @@ class FunctionDefinitionAST : public ExternalDecls {
   FunctionDefinitionAST(DeclSpecifiersAST* declspecs, DirectDeclaratorAST* decls, BlockItemListAST* stmts) :
     _decl_specs(declspecs), _declarators(decls), _compound_stmts(stmts) {  }
 
+  /* virtual llvm::Value* codegen(); */
   virtual void print(int indent) {
     printIndent(indent);
     cout << "Function Definition" << endl;
@@ -403,7 +421,7 @@ class InitDeclaratorListAST : public NodeAST {
   }
 };
 
-class DeclarationAST : public BlockItemAST {
+class DeclarationAST : public ExternalDeclsAST {
 };
 
 class NormalDeclAST : public DeclarationAST {

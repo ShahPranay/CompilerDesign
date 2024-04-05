@@ -1,4 +1,4 @@
-//int printf(char const format, ...);
+int printf(char const format, ...);
 int a = 5;
 
 int

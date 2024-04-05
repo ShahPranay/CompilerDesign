@@ -25,7 +25,7 @@ RootAST* AST_root;
   DirectDeclaratorAST* direct_decl;
   SpecifierAST* specifier;
   DeclSpecifiersAST* decl_specs;
-  ExternalDecls* external_decls;
+  ExternalDeclsAST* external_decls;
   DeclarationAST* declaration_ast;
   InitDeclaratorListAST* init_decl_list;
   InitDeclaratorAST* init_decl;
@@ -59,7 +59,7 @@ RootAST* AST_root;
 %token	ALIGNAS ALIGNOF ATOMIC GENERIC NORETURN STATIC_ASSERT THREAD_LOCAL
 
 
-%type <statement> statement expression_statement block_item
+%type <statement> statement expression_statement jump_statement block_item
 %type <block_list> block_item_list compound_statement
 
 %type <expression> cast_expression unary_expression postfix_expression primary_expression
@@ -127,8 +127,8 @@ generic_association
 postfix_expression
   : primary_expression
   | postfix_expression '[' expression ']'
-  | postfix_expression '(' ')'
-  | postfix_expression '(' argument_expression_list ')'
+  | postfix_expression '(' ')' 
+  | postfix_expression '(' argument_expression_list ')' { cout << "function call\n"; }
   | postfix_expression '.' IDENTIFIER
   | postfix_expression PTR_OP IDENTIFIER
   | postfix_expression INC_OP
@@ -567,8 +567,8 @@ jump_statement
   : GOTO IDENTIFIER ';'
   | CONTINUE ';'
   | BREAK ';'
-  | RETURN ';'
-  | RETURN expression ';'
+  | RETURN ';' { $$ = new ReturnStmtAST(); }
+  | RETURN expression ';' { $$ = new ReturnStmtAST($2); }
   ;
 
 translation_unit
