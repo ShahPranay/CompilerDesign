@@ -174,6 +174,19 @@ class WhileStmtAST : public StmtAST {
   } 
 };
 
+class GotoStmtAST : public StmtAST {
+  IdentifierAST* _identifier;
+
+  public:
+  GotoStmtAST(const std::string& identifier) : _identifier(new IdentifierAST(identifier)) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "GOTO\n";
+    _identifier->print(indent+1);
+  }
+};
+
 class ReturnStmtAST : public StmtAST {
   ExprAST* _expr; 
 

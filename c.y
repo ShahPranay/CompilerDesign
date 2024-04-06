@@ -564,7 +564,7 @@ iteration_statement
   ;
 
 jump_statement
-  : GOTO IDENTIFIER ';'
+  : GOTO IDENTIFIER ';' { $$ = new GotoStmtAST(*$2); }
   | CONTINUE ';'
   | BREAK ';'
   | RETURN ';' { $$ = new ReturnStmtAST(); }
