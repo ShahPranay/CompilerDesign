@@ -59,7 +59,7 @@ RootAST* AST_root;
 %token	ALIGNAS ALIGNOF ATOMIC GENERIC NORETURN STATIC_ASSERT THREAD_LOCAL
 
 
-%type <statement> statement expression_statement jump_statement block_item
+%type <statement> statement expression_statement jump_statement block_item selection_statement iteration_statement
 %type <block_list> block_item_list compound_statement
 
 %type <expression> cast_expression unary_expression postfix_expression primary_expression
@@ -549,13 +549,13 @@ expression_statement
   ;
 
 selection_statement
-  : IF '(' expression ')' statement ELSE statement
-  | IF '(' expression ')' statement
+  : IF '(' expression ')' statement ELSE statement { $$ = new IfElseStmtAST($3, $5, $7); }
+  | IF '(' expression ')' statement { $$ = new IfElseStmtAST($3, $5); }
   | SWITCH '(' expression ')' statement
   ;
 
 iteration_statement
-  : WHILE '(' expression ')' statement
+  : WHILE '(' expression ')' statement { $$ = new WhileStmtAST($3, $5); }
   | DO statement WHILE '(' expression ')' ';'
   | FOR '(' expression_statement expression_statement ')' statement
   | FOR '(' expression_statement expression_statement expression ')' statement

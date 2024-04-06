@@ -3,6 +3,7 @@
 #include <memory>
 #include <iostream>
 #include <list>
+//#include "llvm/IR/Value.h"
 /* #include "ASTTypes.h" */
 
 using std::cout;
@@ -13,7 +14,6 @@ class NodeAST {
   public:
     virtual ~NodeAST() = default;
     virtual void print(int indent) { };
-    /* virtual llvm::Value* codegen(); */
 
     void printIndent(int indent) {
       for(int i=0; i<indent ; i++) {
@@ -47,6 +47,8 @@ class RootAST : public NodeAST {
 
 //Base class for all exressions
 class ExprAST : public NodeAST {
+  public:
+ // virtual llvm::Value* codegen();
 };
 
 class BlockItemAST : public NodeAST {
@@ -64,6 +66,8 @@ class IntegerExprAST : public ExprAST {
   public:
   IntegerExprAST(int Val) : val(Val) {  }
 
+  // virtual llvm::Value* codegen();
+
   virtual void print(int indent) { 
     printIndent(indent);
     cout << "Val : " << val << endl; 
@@ -76,6 +80,8 @@ class DoubleExprAST : public ExprAST {
   public:
   DoubleExprAST(double Val) : val(Val) {}
 
+  //virtual llvm::Value* codegen();
+
   virtual void print(int indent) { 
     printIndent(indent); 
     cout << "Val : " << val << endl; 
@@ -87,6 +93,8 @@ class IdentifierAST : public ExprAST {
 
   public:
   IdentifierAST(const std::string& name) : _name( name ) {  }
+
+  //virtual llvm::Value* codegen();
 
   virtual void print(int indent) { 
     printIndent(indent); 
@@ -102,6 +110,8 @@ class BinaryExprAST : public ExprAST {
   public:
   BinaryExprAST(const std::string& op, ExprAST* LHS, ExprAST* RHS)
     : op(op), left(LHS), right(RHS) {}
+
+  //virtual llvm::Value* codegen();
 
   virtual void print(int indent) { 
     left->print(indent+1);
@@ -123,6 +133,45 @@ class ExprStmtAST : public StmtAST {
   virtual void print(int indent) {
     if (_expression != nullptr) _expression->print(indent);
   }
+};
+
+class IfElseStmtAST : public StmtAST {
+  ExprAST* _expression;
+  StmtAST* _if_statement;
+  StmtAST* _else_statement;
+
+  public:
+  IfElseStmtAST(ExprAST* expression, StmtAST* if_statement) : _expression(expression), _if_statement(if_statement), _else_statement(nullptr) {  }
+  IfElseStmtAST(ExprAST* expression, StmtAST* if_statement, StmtAST* else_statement) : _expression(expression), _if_statement(if_statement), _else_statement(else_statement) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "If Condition\n";
+    _expression->print(indent+1);
+    printIndent(indent);
+    cout << "Truth Block\n";
+    _if_statement->print(indent+1);
+    if (_else_statement != nullptr) {
+      printIndent(indent);
+      cout << "False Block\n";
+      _else_statement->print(indent+1);
+    }
+  }
+};
+
+class WhileStmtAST : public StmtAST {
+  ExprAST* _expression;
+  StmtAST* _statement;
+
+  public:
+  WhileStmtAST(ExprAST* expression, StmtAST* statement) : _expression(expression), _statement(statement) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "While Condition\n";
+    _expression->print(indent+1);
+    _statement->print(indent);
+  } 
 };
 
 class ReturnStmtAST : public StmtAST {
@@ -355,7 +404,8 @@ class FunctionDefinitionAST : public ExternalDeclsAST {
   FunctionDefinitionAST(DeclSpecifiersAST* declspecs, DirectDeclaratorAST* decls, BlockItemListAST* stmts) :
     _decl_specs(declspecs), _declarators(decls), _compound_stmts(stmts) {  }
 
-  /* virtual llvm::Value* codegen(); */
+  // virtual llvm::Value* codegen();
+
   virtual void print(int indent) {
     printIndent(indent);
     cout << "Function Definition" << endl;
