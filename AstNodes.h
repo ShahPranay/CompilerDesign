@@ -24,13 +24,15 @@ class NodeAST {
 };
 
 class ExternalDeclsAST : public NodeAST {
+  public:
+    virtual void codegen();
 };
 
 class RootAST : public NodeAST {
   std::vector<ExternalDeclsAST*> _extern_units;    
 
   public:
-  /* virtual llvm::Value* codegen(); */
+  void codegen();
   void insertExternalUnit(ExternalDeclsAST* unit) {
     _extern_units.push_back(unit);
   }
@@ -61,30 +63,30 @@ class StmtAST : public BlockItemAST {
 };
 
 class IntegerExprAST : public ExprAST {
-  int val;
+  int _val;
 
   public:
-  IntegerExprAST(int Val) : val(Val) {  }
+  IntegerExprAST(int Val) : _val(Val) {  }
 
   // virtual llvm::Value* codegen();
 
   virtual void print(int indent) { 
     printIndent(indent);
-    cout << "Val : " << val << endl; 
+    cout << "Val : " << _val << endl; 
   }
 };
 
 class DoubleExprAST : public ExprAST {
-  double val;
+  double _val;
 
   public:
-  DoubleExprAST(double Val) : val(Val) {}
+  DoubleExprAST(double Val) : _val(Val) {}
 
   //virtual llvm::Value* codegen();
 
   virtual void print(int indent) { 
     printIndent(indent); 
-    cout << "Val : " << val << endl; 
+    cout << "Val : " << _val << endl; 
   }
 };
 
@@ -266,6 +268,8 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
     printIndent(indent);
     cout << "Type Specifier : " << _type_name << endl;
   }
+
+  std::string getName() { return _type_name; }
 };
 
 class PointerAST : public NodeAST {
@@ -309,6 +313,8 @@ class DeclSpecifiersAST : public NodeAST {
     }
   }
 
+  Type* getLLVMType();
+
 };
 
 class DirectDeclaratorAST : public NodeAST {
@@ -337,6 +343,8 @@ class ParamDeclAST : public NodeAST {
     if (_specs != nullptr) _specs->print(indent);
     if (_decl != nullptr) _decl->print(indent);
   }
+
+  Type* getLLVMType() { return _specs->getLLVMType(); }
 };
 
 class ParamListAST : public NodeAST {
@@ -369,6 +377,8 @@ class ParamListAST : public NodeAST {
       cout << "Ellipsis" << endl;
     }
   }
+
+  std::vector<Type*> getParamTypes();
 };
 
 class FunctionDeclaratorAST : public DirectDeclaratorAST {
@@ -388,6 +398,10 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
     if (_identifier != nullptr) _identifier->print(indent);
     if (_paramlist != nullptr) _paramlist->print(indent);
   }
+
+  std::string getFnName() { return _identifier->getName(); }
+
+  std::vector<Type*> getParamTypes() { return _paramlist->getParamTypes(); }
 };
 
 class IdDeclaratorAST : public DirectDeclaratorAST {
@@ -406,6 +420,8 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
     printIndent(indent);
     cout << _name << endl;
   }
+
+  std::string getName() { return _name; }
 };
 
 class FunctionDefinitionAST : public ExternalDeclsAST {
@@ -427,6 +443,8 @@ class FunctionDefinitionAST : public ExternalDeclsAST {
     if (_declarators != nullptr) _declarators->print(indent+1);
     if (_compound_stmts != nullptr) _compound_stmts->print(indent+1);
   }
+
+
 };
 
 
@@ -485,6 +503,8 @@ class InitDeclaratorListAST : public NodeAST {
 };
 
 class DeclarationAST : public ExternalDeclsAST {
+  public:
+    virtual void codegen();
 };
 
 class NormalDeclAST : public DeclarationAST {
@@ -503,6 +523,9 @@ class NormalDeclAST : public DeclarationAST {
     _specs->print(indent);
     if (_init_decl_list != nullptr) _init_decl_list->print(indent);
   }
+  virtual void codegen() override;
+
+  static Function* declareLLVMFunction(Type* ret_type, std::string name, std::vector<Type*> params);
 };
 
 class StaticAssertDeclAST : public DeclarationAST {

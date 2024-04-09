@@ -6,12 +6,16 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include<stack>
+#include<map>
+
 using namespace llvm;
 
 LLVMContext* llvm_context;
 Module* llvm_module;
-IRBuilder<>* llvm_builder;
-std::map<std::string, Value*> id_map;
+IRBuilder* llvm_builder;
+std::map<std::string, AllocaInst*> global_symbols;
+std::vector<std::map<std::string, AllocaInst*>> nested_symbols;
 
 static void initialize_module()
 {
@@ -34,18 +38,30 @@ Value *LogErrorV(const char *Str) {
 }
 
 Value* IntegerExprAST::codegen() {
-  return ConstantInt::get(*llvm_context, APInt(32, val, true));
+  return ConstantInt::get(*llvm_context, APInt(32, _val, true));
 }
 
 Value* DoubleExprAST::codegen() {
-  return ConstantFP::get(*llvm_context, APFloat(val));
+  return ConstantFP::get(*llvm_context, APFloat(_val));
 }
 
 Value* IdentifierAST::codegen() {
-  Value* V = id_map[_name];
-  if (!V) 
+  AllocaInst* A = nullptr;
+  for (int i = nested_symbols.size() - 1; i >= 0; i--){
+    if (nested_symbols[i].find(_name) != nested_symbols[i].end())
+    {
+      A = nested_symbols[i][_name];
+      break;
+    }
+  }
+
+  if (!A)
+    A = global_symbols[_name];
+
+  if (!A) 
     return LogErrorV("Unknown Identifier name");
-  return V;
+
+  return llvm_builder->createLoad(A->getAllocatedType(), A, _name.c_str());
 }
 
 Value* BinaryExprAST::codegen() {
@@ -132,4 +148,65 @@ Value* BlockItemListAST::codegen()
     laststmt = bi->codegen();
   }
   return laststmt;
+}
+
+Type* DeclSpecifiersAST::getLLVMType()
+{
+  if(_decl_specs.size() != 1)
+    return LogErrorV("Number of specifiers do not match 1");
+
+  SpecifierAST* spec = _decl_specs.begin();
+  PrimitiveTypeSpecAST* prim_spec = dynamic_cast<PrimitiveTypeSpecAST*>(spec);
+  if(!prim_spec)
+    LogErrorV("Not a primitive Type Specifier");
+  
+  std::string type_name = prim_spec->getName();
+  Type* ret_type = nullptr;
+
+  if(type_name == "int")
+    ret_type = Type::getInt32Ty(llvm_context);
+  else if(type_name == "char")
+    ret_type = Type::getInt8Ty(llvm_context);
+  else if(type_name == "double")
+    ret_type = Type::getDoubleTy(llvm_context);
+  else 
+    return LogErrorV("Invalid Type");
+
+  return ret_type;
+}
+
+std::vector<Type*> ParamListAST::getParamTypes()
+{
+  std::vector<Type*> params;
+  for (auto param: _params)
+  {
+    params.push_back(param->getLLVMType()); 
+  }
+
+  return params;
+}
+
+Function* FunctionDefinitionAST::codegen()
+{
+  
+}
+
+void NormalDeclAST::codegen()
+{
+  if(_init_decl_list.size() == 1)
+  {
+    FunctionDeclaratorAST* fn = dynamic_cast<FunctionDeclaratorAST*>(_init_decl_list.begin());  
+    if(fn)
+      NormalDeclAST::declareLLVMFunction(_specs->getLLVMType(), fn->getFnName(), fn->getParamTypes());
+  }
+  // handle variable declarations
+}
+
+static Function* NormalDeclAST::declareLLVMFunction(Type* ret_type, std::string name, std::vector<Type*> param_types)
+{
+  // modify for ellipsis
+  FunctionTy* FT = FunctionType::get(ret_type, param_types, false);
+  Function* F = Function::Create(FT, Function::ExternalLinkage, name, llvm_module.get());
+
+  // set arg names
 }
