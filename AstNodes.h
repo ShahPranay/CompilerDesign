@@ -1,3 +1,6 @@
+#include "llvm/IR/Value.h"
+#include "llvm/IR/Type.h"
+
 #include <string>
 #include <vector>
 #include <memory>
@@ -50,11 +53,13 @@ class RootAST : public NodeAST {
 //Base class for all exressions
 class ExprAST : public NodeAST {
   public:
- // virtual llvm::Value* codegen();
+  virtual llvm::Value* codegen();
 };
 
 class BlockItemAST : public NodeAST {
 
+  public:
+    virtual llvm::Value* codegen();
 };
 
 // Base class for all statements
@@ -68,7 +73,7 @@ class IntegerExprAST : public ExprAST {
   public:
   IntegerExprAST(int Val) : _val(Val) {  }
 
-  // virtual llvm::Value* codegen();
+  virtual llvm::Value* codegen() override;
 
   virtual void print(int indent) { 
     printIndent(indent);
@@ -82,7 +87,7 @@ class DoubleExprAST : public ExprAST {
   public:
   DoubleExprAST(double Val) : _val(Val) {}
 
-  //virtual llvm::Value* codegen();
+  virtual llvm::Value* codegen() override;
 
   virtual void print(int indent) { 
     printIndent(indent); 
@@ -96,7 +101,7 @@ class IdentifierAST : public ExprAST {
   public:
   IdentifierAST(const std::string& name) : _name( name ) {  }
 
-  //virtual llvm::Value* codegen();
+  virtual llvm::Value* codegen() override;
 
   virtual void print(int indent) { 
     printIndent(indent); 
@@ -113,7 +118,7 @@ class BinaryExprAST : public ExprAST {
   BinaryExprAST(const std::string& op, ExprAST* LHS, ExprAST* RHS)
     : op(op), left(LHS), right(RHS) {}
 
-  //virtual llvm::Value* codegen();
+  virtual llvm::Value* codegen() override;
 
   virtual void print(int indent) { 
     left->print(indent+1);
@@ -135,6 +140,8 @@ class ExprStmtAST : public StmtAST {
   virtual void print(int indent) {
     if (_expression != nullptr) _expression->print(indent);
   }
+
+  llvm::Value* codegen() override;
 };
 
 class IfElseStmtAST : public StmtAST {
@@ -220,6 +227,8 @@ class BlockItemListAST : public NodeAST {
       _items[i]->print(indent+1);
     }
   }
+
+  llvm::Value* codegen();
 };
 
 class SpecifierAST : public NodeAST {
@@ -313,7 +322,7 @@ class DeclSpecifiersAST : public NodeAST {
     }
   }
 
-  Type* getLLVMType();
+  llvm::Type* getLLVMType();
 
 };
 
@@ -324,6 +333,8 @@ class DirectDeclaratorAST : public NodeAST {
   public:
     DirectDeclaratorAST() : _pointer(nullptr) {  }
     void updatePointer(PointerAST* ptr) { _pointer = ptr; }
+    virtual void codegen(llvm::Type* specifier_type);
+    virtual std::string getName();
 };
 
 class ParamDeclAST : public NodeAST {
@@ -331,7 +342,8 @@ class ParamDeclAST : public NodeAST {
   DirectDeclaratorAST* _decl;  
 
   public:
-  ParamDeclAST(DeclSpecifiersAST* specs, DirectDeclaratorAST* decl) : _specs(specs), _decl(decl) {}   
+  ParamDeclAST(DeclSpecifiersAST* specs, DirectDeclaratorAST* decl) : 
+    _specs(specs), _decl(decl) {}   
 
   ParamDeclAST(DeclSpecifiersAST* specs) : _specs(specs) {}  
 
@@ -344,7 +356,8 @@ class ParamDeclAST : public NodeAST {
     if (_decl != nullptr) _decl->print(indent);
   }
 
-  Type* getLLVMType() { return _specs->getLLVMType(); }
+  llvm::Type* getLLVMType() { return _specs->getLLVMType(); }
+  std::string getName() { return _decl->getName(); }
 };
 
 class ParamListAST : public NodeAST {
@@ -378,7 +391,8 @@ class ParamListAST : public NodeAST {
     }
   }
 
-  std::vector<Type*> getParamTypes();
+  std::vector<llvm::Type*> getParamTypes();
+  std::vector<std::string> getParamNames();
 };
 
 class FunctionDeclaratorAST : public DirectDeclaratorAST {
@@ -399,9 +413,9 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
     if (_paramlist != nullptr) _paramlist->print(indent);
   }
 
-  std::string getFnName() { return _identifier->getName(); }
+  virtual std::string getName() override { return _identifier->getName(); }
 
-  std::vector<Type*> getParamTypes() { return _paramlist->getParamTypes(); }
+  void codegen(llvm::Type* specifier_type) override;
 };
 
 class IdDeclaratorAST : public DirectDeclaratorAST {
@@ -421,29 +435,30 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
     cout << _name << endl;
   }
 
-  std::string getName() { return _name; }
+  virtual std::string getName() override { return _name; }
+
+  void codegen(llvm::Type* specifier_type) override;
 };
 
 class FunctionDefinitionAST : public ExternalDeclsAST {
   DeclSpecifiersAST* _decl_specs;
-  DirectDeclaratorAST* _declarators;
+  DirectDeclaratorAST* _func_declarator;
   BlockItemListAST* _compound_stmts;
 
   public:
   FunctionDefinitionAST(DeclSpecifiersAST* declspecs, DirectDeclaratorAST* decls, BlockItemListAST* stmts) :
-    _decl_specs(declspecs), _declarators(decls), _compound_stmts(stmts) {  }
-
-  // virtual llvm::Value* codegen();
+    _decl_specs(declspecs), _func_declarator(decls), _compound_stmts(stmts) {  }
 
   virtual void print(int indent) {
     printIndent(indent);
     cout << "Function Definition" << endl;
 
     if (_decl_specs != nullptr) _decl_specs->print(indent+1);
-    if (_declarators != nullptr) _declarators->print(indent+1);
+    if (_func_declarator != nullptr) _func_declarator->print(indent+1);
     if (_compound_stmts != nullptr) _compound_stmts->print(indent+1);
   }
 
+  void codegen() override;
 
 };
 
@@ -485,10 +500,13 @@ class InitDeclaratorAST : public NodeAST {
       _direct_decl->print(indent);
     }
   }
+
+  void codegen(llvm::Type* codegen);
 };
 
 class InitDeclaratorListAST : public NodeAST {
   std::vector<InitDeclaratorAST*> _init_declarators;
+
   public:
   InitDeclaratorListAST() {  }
   void insertInitDeclarator(InitDeclaratorAST* cur_init_decl) { _init_declarators.push_back(cur_init_decl); }
@@ -500,6 +518,9 @@ class InitDeclaratorListAST : public NodeAST {
       _init_declarators[i]->print(indent+1);
     }
   }
+
+  void codegen(llvm::Type* codegen);
+
 };
 
 class DeclarationAST : public ExternalDeclsAST {
@@ -524,8 +545,6 @@ class NormalDeclAST : public DeclarationAST {
     if (_init_decl_list != nullptr) _init_decl_list->print(indent);
   }
   virtual void codegen() override;
-
-  static Function* declareLLVMFunction(Type* ret_type, std::string name, std::vector<Type*> params);
 };
 
 class StaticAssertDeclAST : public DeclarationAST {

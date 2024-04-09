@@ -1,10 +1,12 @@
-#include "AstNodes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Verifier.h"
+
+#include "AstNodes.h"
 
 #include<stack>
 #include<map>
@@ -13,7 +15,7 @@ using namespace llvm;
 
 LLVMContext* llvm_context;
 Module* llvm_module;
-IRBuilder* llvm_builder;
+IRBuilder<>* llvm_builder;
 std::map<std::string, AllocaInst*> global_symbols;
 std::vector<std::map<std::string, AllocaInst*>> nested_symbols;
 
@@ -32,9 +34,15 @@ static void cleanup()
   delete llvm_context;
 }
 
-Value *LogErrorV(const char *Str) {
+void LogErrorV(const char *Str) {
   errs() << "Error: " << Str << "\n";
-  return nullptr;
+}
+
+static AllocaInst *CreateEntryBlockAlloca(Function *F, StringRef var_name, Type *type)
+{
+  IRBuilder<> TmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
+
+  return TmpB.CreateAlloca(type, nullptr, var_name);
 }
 
 Value* IntegerExprAST::codegen() {
@@ -58,10 +66,13 @@ Value* IdentifierAST::codegen() {
   if (!A)
     A = global_symbols[_name];
 
-  if (!A) 
-    return LogErrorV("Unknown Identifier name");
+  if (!A)
+  {
+    LogErrorV("Unknown Identifier name");
+    return nullptr;
+  }
 
-  return llvm_builder->createLoad(A->getAllocatedType(), A, _name.c_str());
+  return llvm_builder->CreateLoad(A->getAllocatedType(), A, _name.c_str());
 }
 
 Value* BinaryExprAST::codegen() {
@@ -132,12 +143,13 @@ Value* BinaryExprAST::codegen() {
       return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
   }
 
-  return LogErrorV("Invalid binary operator");
+  LogErrorV("Invalid binary operator");
+  return nullptr;
 }
 
-Value* FunctionDefinitionAST::codegen()
+Value* ExprStmtAST::codegen()
 {
-  return _compound_stmts->codegen();
+  return _expression->codegen();
 }
 
 Value* BlockItemListAST::codegen()
@@ -153,60 +165,126 @@ Value* BlockItemListAST::codegen()
 Type* DeclSpecifiersAST::getLLVMType()
 {
   if(_decl_specs.size() != 1)
-    return LogErrorV("Number of specifiers do not match 1");
+  {
+    LogErrorV("Number of specifiers do not match 1");
+    return nullptr;
+  }
 
-  SpecifierAST* spec = _decl_specs.begin();
+  SpecifierAST* spec = *_decl_specs.begin();
   PrimitiveTypeSpecAST* prim_spec = dynamic_cast<PrimitiveTypeSpecAST*>(spec);
   if(!prim_spec)
+  {
     LogErrorV("Not a primitive Type Specifier");
+    return nullptr;
+  }
   
   std::string type_name = prim_spec->getName();
   Type* ret_type = nullptr;
 
   if(type_name == "int")
-    ret_type = Type::getInt32Ty(llvm_context);
+    ret_type = Type::getInt32Ty(*llvm_context);
   else if(type_name == "char")
-    ret_type = Type::getInt8Ty(llvm_context);
+    ret_type = Type::getInt8Ty(*llvm_context);
   else if(type_name == "double")
-    ret_type = Type::getDoubleTy(llvm_context);
+    ret_type = Type::getDoubleTy(*llvm_context);
   else 
-    return LogErrorV("Invalid Type");
+  {
+    LogErrorV("Invalid Type");
+    return nullptr;
+  }
 
   return ret_type;
 }
 
 std::vector<Type*> ParamListAST::getParamTypes()
 {
-  std::vector<Type*> params;
+  std::vector<Type*> types;
   for (auto param: _params)
   {
-    params.push_back(param->getLLVMType()); 
+    types.push_back(param->getLLVMType()); 
   }
 
-  return params;
+  return types;
 }
 
-Function* FunctionDefinitionAST::codegen()
+std::vector<std::string> ParamListAST::getParamNames()
 {
-  
+  std::vector<std::string> names;
+  for (auto param: _params)
+  {
+    names.push_back(param->getName());
+  }
+  return names;
+}
+
+
+
+void FunctionDefinitionAST::codegen()
+{
+  Function *F = llvm_module->getFunction(_func_declarator->getName());
+
+  if(!F)
+    _func_declarator->codegen(_decl_specs->getLLVMType());
+
+  F = llvm_module->getFunction(_func_declarator->getName());
+
+  if(!F)
+    return;
+
+  if(!F->empty()){
+    LogErrorV("Cannot be redefined");
+    return;
+  }
+
+  BasicBlock *BB = BasicBlock::Create(*llvm_context, "entry", F);
+  llvm_builder->SetInsertPoint(BB);
+
+  nested_symbols.clear();
+  nested_symbols.push_back({});
+  for (auto &arg: F->args())
+  {
+    AllocaInst *Alloca = CreateEntryBlockAlloca(F, arg.getName(), arg.getType());
+    llvm_builder->CreateStore(&arg, Alloca);
+    nested_symbols[0][std::string(arg.getName())] = Alloca;
+  }
+
+  // body codgen
+  _compound_stmts->codegen();
+  verifyFunction(*F);
 }
 
 void NormalDeclAST::codegen()
 {
-  if(_init_decl_list.size() == 1)
-  {
-    FunctionDeclaratorAST* fn = dynamic_cast<FunctionDeclaratorAST*>(_init_decl_list.begin());  
-    if(fn)
-      NormalDeclAST::declareLLVMFunction(_specs->getLLVMType(), fn->getFnName(), fn->getParamTypes());
-  }
-  // handle variable declarations
+  _init_decl_list->codegen(_specs->getLLVMType());
 }
 
-static Function* NormalDeclAST::declareLLVMFunction(Type* ret_type, std::string name, std::vector<Type*> param_types)
+void InitDeclaratorListAST::codegen(Type* specifier_type)
 {
-  // modify for ellipsis
-  FunctionTy* FT = FunctionType::get(ret_type, param_types, false);
-  Function* F = Function::Create(FT, Function::ExternalLinkage, name, llvm_module.get());
+  for (auto idecl: _init_declarators)
+  {
+    idecl->codegen(specifier_type);
+  }
+}
 
-  // set arg names
+void InitDeclaratorAST::codegen(Type* specifier_type)
+{
+  _direct_decl->codegen(specifier_type);
+
+  // handle initializations
+}
+
+void FunctionDeclaratorAST::codegen(Type* specifier_type)
+{
+  // incorporate ellipsis
+  auto param_types = _paramlist->getParamTypes();
+  auto param_names = _paramlist->getParamNames();
+  
+  FunctionType* FT = FunctionType::get(specifier_type, param_types , false);
+  Function* F = Function::Create(FT, Function::ExternalLinkage, _identifier->getName(), *llvm_module);
+
+  unsigned int i = 0;
+  for (auto &Arg: F->args())
+  {
+    Arg.setName(param_names[i++]);
+  }
 }
