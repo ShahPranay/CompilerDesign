@@ -152,6 +152,30 @@ Value* ExprStmtAST::codegen()
   return _expression->codegen();
 }
 
+Value* IfElseStmtAST::codegen()
+{
+  LogErrorV("Not implemented yet");
+  return nullptr;
+}
+
+Value* ReturnStmtAST::codegen()
+{
+  LogErrorV("Not implemented yet");
+  return nullptr;
+}
+
+Value* GotoStmtAST::codegen()
+{
+  LogErrorV("Not implemented yet");
+  return nullptr;
+}
+
+Value* WhileStmtAST::codegen()
+{
+  LogErrorV("Not implemented yet");
+  return nullptr;
+}
+
 Value* BlockItemListAST::codegen()
 {
   Value* laststmt;
@@ -287,4 +311,9 @@ void FunctionDeclaratorAST::codegen(Type* specifier_type)
   {
     Arg.setName(param_names[i++]);
   }
+}
+
+void IdDeclaratorAST::codegen(Type* specifier_type)
+{
+  LogErrorV("Not Implemented yet");
 }

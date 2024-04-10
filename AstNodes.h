@@ -28,7 +28,7 @@ class NodeAST {
 
 class ExternalDeclsAST : public NodeAST {
   public:
-    virtual void codegen();
+    virtual void codegen() = 0;
 };
 
 class RootAST : public NodeAST {
@@ -53,13 +53,13 @@ class RootAST : public NodeAST {
 //Base class for all exressions
 class ExprAST : public NodeAST {
   public:
-  virtual llvm::Value* codegen();
+  virtual llvm::Value* codegen() = 0;
 };
 
 class BlockItemAST : public NodeAST {
 
   public:
-    virtual llvm::Value* codegen();
+    virtual llvm::Value* codegen() = 0;
 };
 
 // Base class for all statements
@@ -166,6 +166,8 @@ class IfElseStmtAST : public StmtAST {
       _else_statement->print(indent+1);
     }
   }
+
+  llvm::Value* codegen() override;
 };
 
 class WhileStmtAST : public StmtAST {
@@ -181,6 +183,8 @@ class WhileStmtAST : public StmtAST {
     _expression->print(indent+1);
     _statement->print(indent);
   } 
+
+  llvm::Value* codegen() override;
 };
 
 class GotoStmtAST : public StmtAST {
@@ -194,6 +198,8 @@ class GotoStmtAST : public StmtAST {
     cout << "GOTO\n";
     _identifier->print(indent+1);
   }
+
+  llvm::Value* codegen() override;
 };
 
 class ReturnStmtAST : public StmtAST {
@@ -208,6 +214,8 @@ class ReturnStmtAST : public StmtAST {
     cout << "Return\n";
     _expr->print(indent);
   }
+
+  llvm::Value* codegen() override;
 };
 
 class BlockItemListAST : public NodeAST {
@@ -333,8 +341,8 @@ class DirectDeclaratorAST : public NodeAST {
   public:
     DirectDeclaratorAST() : _pointer(nullptr) {  }
     void updatePointer(PointerAST* ptr) { _pointer = ptr; }
-    virtual void codegen(llvm::Type* specifier_type);
-    virtual std::string getName();
+    virtual void codegen(llvm::Type* specifier_type) = 0;
+    virtual std::string getName() = 0;
 };
 
 class ParamDeclAST : public NodeAST {
@@ -437,7 +445,7 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
 
   virtual std::string getName() override { return _name; }
 
-  void codegen(llvm::Type* specifier_type) override;
+  virtual void codegen(llvm::Type* specifier_type) override;
 };
 
 class FunctionDefinitionAST : public ExternalDeclsAST {
@@ -525,7 +533,7 @@ class InitDeclaratorListAST : public NodeAST {
 
 class DeclarationAST : public ExternalDeclsAST {
   public:
-    virtual void codegen();
+    virtual void codegen() = 0;
 };
 
 class NormalDeclAST : public DeclarationAST {
