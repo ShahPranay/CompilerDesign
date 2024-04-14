@@ -1,5 +1,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Instructions.h"
 
 #include <string>
 #include <vector>
@@ -101,7 +102,8 @@ class IdentifierAST : public ExprAST {
   public:
   IdentifierAST(const std::string& name) : _name( name ) {  }
 
-  virtual llvm::Value* codegen() override;
+  llvm::Value* codegen() override;
+  llvm::AllocaInst* getAlloca();
 
   virtual void print(int indent) { 
     printIndent(indent); 

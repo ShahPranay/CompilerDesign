@@ -10,6 +10,9 @@
 
 #include<stack>
 #include<map>
+#include <iostream>
+
+using std::cout, std::endl;
 
 using namespace llvm;
 
@@ -19,7 +22,7 @@ IRBuilder<>* llvm_builder;
 std::map<std::string, AllocaInst*> global_symbols;
 std::vector<std::map<std::string, AllocaInst*>> nested_symbols;
 
-static void initialize_module()
+void initialize_module()
 {
   llvm_context = new LLVMContext();
   llvm_module = new Module("C compiler", *llvm_context);
@@ -27,7 +30,7 @@ static void initialize_module()
   llvm_builder = new IRBuilder<>(*llvm_context);
 }
 
-static void cleanup()
+void cleanup_module()
 {
   delete llvm_builder;
   delete llvm_module;
@@ -53,7 +56,8 @@ Value* DoubleExprAST::codegen() {
   return ConstantFP::get(*llvm_context, APFloat(_val));
 }
 
-Value* IdentifierAST::codegen() {
+AllocaInst* IdentifierAST::getAlloca()
+{
   AllocaInst* A = nullptr;
   for (int i = nested_symbols.size() - 1; i >= 0; i--){
     if (nested_symbols[i].find(_name) != nested_symbols[i].end())
@@ -69,13 +73,42 @@ Value* IdentifierAST::codegen() {
   if (!A)
   {
     LogErrorV("Unknown Identifier name");
-    return nullptr;
   }
 
+  return A;
+}
+
+Value* IdentifierAST::codegen() 
+{
+  AllocaInst *A = getAlloca();
   return llvm_builder->CreateLoad(A->getAllocatedType(), A, _name.c_str());
 }
 
 Value* BinaryExprAST::codegen() {
+
+  if (op == "=")
+  {
+    IdentifierAST *LHSE = static_cast<IdentifierAST*>(left);
+    if (!LHSE){
+      LogErrorV("destination of \'=\' must be a variable.");
+      return nullptr;
+    }
+    
+    Value *R = right->codegen();
+    if (!R)
+      return nullptr;
+    
+    Value *VarValue = LHSE->getAlloca(); 
+    if(!VarValue)
+    {
+      LogErrorV("Unknown variable name.");
+      return nullptr;
+    }
+    
+    llvm_builder->CreateStore(R, VarValue);
+    return R;
+  }
+
   Value* L = left->codegen();
   Value* R = right->codegen();
   if (!L || !R)
@@ -154,26 +187,35 @@ Value* ExprStmtAST::codegen()
 
 Value* IfElseStmtAST::codegen()
 {
-  LogErrorV("Not implemented yet");
+
+  LogErrorV("ifelse Not implemented yet");
   return nullptr;
 }
 
 Value* ReturnStmtAST::codegen()
 {
-  LogErrorV("Not implemented yet");
+  LogErrorV("return Not implemented yet");
   return nullptr;
 }
 
 Value* GotoStmtAST::codegen()
 {
-  LogErrorV("Not implemented yet");
+  LogErrorV("goto Not implemented yet");
   return nullptr;
 }
 
 Value* WhileStmtAST::codegen()
 {
-  LogErrorV("Not implemented yet");
+  LogErrorV("while Not implemented yet");
   return nullptr;
+}
+
+void RootAST::codegen()
+{
+  for(auto ed: _extern_units)
+  {
+    ed->codegen();
+  }
 }
 
 Value* BlockItemListAST::codegen()
@@ -211,6 +253,8 @@ Type* DeclSpecifiersAST::getLLVMType()
     ret_type = Type::getInt8Ty(*llvm_context);
   else if(type_name == "double")
     ret_type = Type::getDoubleTy(*llvm_context);
+  else if(type_name == "void")
+    ret_type = Type::getVoidTy(*llvm_context);
   else 
   {
     LogErrorV("Invalid Type");
@@ -315,5 +359,6 @@ void FunctionDeclaratorAST::codegen(Type* specifier_type)
 
 void IdDeclaratorAST::codegen(Type* specifier_type)
 {
+  cout << _name << endl;
   LogErrorV("Not Implemented yet");
 }

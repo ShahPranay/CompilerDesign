@@ -410,7 +410,7 @@ direct_declarator
   | direct_declarator '[' type_qualifier_list ']'
   | direct_declarator '[' assignment_expression ']'
   | direct_declarator '(' parameter_type_list ')' { $$ = new FunctionDeclaratorAST($1, $3); }
-  | direct_declarator '(' ')'
+  | direct_declarator '(' ')' { $$ = new FunctionDeclaratorAST($1, new ParamListAST(false)); }
   | direct_declarator '(' identifier_list ')'
   ;
 
