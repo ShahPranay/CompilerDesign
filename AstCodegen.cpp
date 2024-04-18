@@ -187,15 +187,88 @@ Value* ExprStmtAST::codegen()
 
 Value* IfElseStmtAST::codegen()
 {
+  Value* CondV = _expression->codegen();
+  if (!CondV) {
+    LogErrorV("Failed to generate code for if condition");
+    return nullptr;
+  }
 
-  LogErrorV("ifelse Not implemented yet");
-  return nullptr;
+  if (!CondV->getType()->isIntegerTy(1)) {
+      LogErrorV("If condition must be of type boolean");
+      return nullptr;
+  }
+
+  Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
+  BasicBlock* ThenBB = BasicBlock::Create(*llvm_context, "then", TheFunction);
+  BasicBlock* ElseBB = BasicBlock::Create(*llvm_context, "else");
+  BasicBlock* MergeBB = BasicBlock::Create(*llvm_context, "ifcont");
+
+  llvm_builder->CreateCondBr(CondV, ThenBB, ElseBB);
+
+  llvm_builder->SetInsertPoint(ThenBB);
+  Value* ThenV = _then_statement->codegen();
+  if (!ThenV)
+  {
+      LogErrorV("Failed to generate code for then clause");
+      return nullptr;
+  }
+  llvm_builder->CreateBr(MergeBB);
+
+  ThenBB = llvm_builder->GetInsertBlock();
+
+  TheFunction->getBasicBlockList().push_back(ElseBB);
+  llvm_builder->SetInsertPoint(ElseBB);
+  Value* ElseV = nullptr;
+  if (_else_statement)
+  {
+      ElseV = _else_statement->codegen();
+      if (!ElseV)
+      {
+          LogErrorV("Failed to generate code for else clause");
+          return nullptr;
+      }
+  }
+  llvm_builder->CreateBr(MergeBB);
+
+  ElseBB = llvm_builder->GetInsertBlock();
+
+  TheFunction->getBasicBlockList().push_back(MergeBB);
+  llvm_builder->SetInsertPoint(MergeBB);
+  PHINode* PN = llvm_builder->CreatePHI(Type::getVoidTy(*llvm_context), 2, "iftmp");
+  PN->addIncoming(ThenV, ThenBB);
+  if (_else_statement)
+  {
+      PN->addIncoming(ElseV, ElseBB);
+  }
+
+  return PN;
 }
 
 Value* ReturnStmtAST::codegen()
 {
-  LogErrorV("return Not implemented yet");
-  return nullptr;
+  if (_expr) {
+      Value* RetVal = _expr->codegen();
+      if (!RetVal) {
+          LogErrorV("Failed to generate code for return expression");
+          return nullptr;
+      }
+
+      Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
+      if (!TheFunction->getReturnType()->isVoidTy() && RetVal->getType() != TheFunction->getReturnType()) {
+          LogErrorV("Return type mismatch");
+          return nullptr;
+      }
+
+      return llvm_builder->CreateRet(RetVal);
+  } else {
+      Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
+      if (!TheFunction->getReturnType()->isVoidTy()) {
+          LogErrorV("Return type mismatch");
+          return nullptr;
+      }
+
+      return llvm_builder->CreateRetVoid();
+  }
 }
 
 Value* GotoStmtAST::codegen()
@@ -206,7 +279,32 @@ Value* GotoStmtAST::codegen()
 
 Value* WhileStmtAST::codegen()
 {
-  LogErrorV("while Not implemented yet");
+  Function *TheFunction = llvm_builder->GetInsertBlock()->getParent();
+  BasicBlock *CondBlock = BasicBlock::Create(*llvm_context, "while.cond", TheFunction);
+  BasicBlock *LoopBlock = BasicBlock::Create(*llvm_context, "while.loop");
+  BasicBlock *AfterBlock = BasicBlock::Create(*llvm_context, "while.after");
+
+  llvm_builder->CreateBr(CondBlock);
+
+  llvm_builder->SetInsertPoint(CondBlock);
+
+  Value *ConditionValue = _expression->codegen();
+  if (!ConditionValue) {
+    LogErrorV("Failed to generate code for condition");
+    return nullptr;
+  }
+
+  llvm_builder->CreateCondBr(ConditionValue, LoopBlock, AfterBlock);
+
+  TheFunction->getBasicBlockList().push_back(LoopBlock);
+  llvm_builder->SetInsertPoint(LoopBlock);
+  _statement->codegen();
+
+  llvm_builder->CreateBr(CondBlock);
+
+  TheFunction->getBasicBlockList().push_back(AfterBlock);
+  llvm_builder->SetInsertPoint(AfterBlock);
+
   return nullptr;
 }
 

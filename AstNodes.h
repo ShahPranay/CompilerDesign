@@ -148,23 +148,23 @@ class ExprStmtAST : public StmtAST {
 
 class IfElseStmtAST : public StmtAST {
   ExprAST* _expression;
-  StmtAST* _if_statement;
+  StmtAST* _then_statement;
   StmtAST* _else_statement;
 
   public:
-  IfElseStmtAST(ExprAST* expression, StmtAST* if_statement) : _expression(expression), _if_statement(if_statement), _else_statement(nullptr) {  }
-  IfElseStmtAST(ExprAST* expression, StmtAST* if_statement, StmtAST* else_statement) : _expression(expression), _if_statement(if_statement), _else_statement(else_statement) { }
+  IfElseStmtAST(ExprAST* expression, StmtAST* then_statement) : _expression(expression), _then_statement(then_statement), _else_statement(nullptr) {  }
+  IfElseStmtAST(ExprAST* expression, StmtAST* then_statement, StmtAST* else_statement) : _expression(expression), _then_statement(then_statement), _else_statement(else_statement) { }
 
   virtual void print(int indent) {
     printIndent(indent);
     cout << "If Condition\n";
     _expression->print(indent+1);
     printIndent(indent);
-    cout << "Truth Block\n";
-    _if_statement->print(indent+1);
+    cout << "Then Block\n";
+    _then_statement->print(indent+1);
     if (_else_statement != nullptr) {
       printIndent(indent);
-      cout << "False Block\n";
+      cout << "Else Block\n";
       _else_statement->print(indent+1);
     }
   }
