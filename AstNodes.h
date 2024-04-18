@@ -220,6 +220,40 @@ class ReturnStmtAST : public StmtAST {
   llvm::Value* codegen() override;
 };
 
+class ArgListAST : public ExprAST {
+  std::vector<ExprAST*> _arg_list;
+
+  public:
+  ArgListAST() { }
+  void insertArg(ExprAST* arg) { _arg_list.push_back(arg); }
+
+  virtual void print(int indent) {
+    for(int i=0; i<_arg_list.size() ; i++) {
+      printIndent(indent);
+      cout << "Arg " << i << endl;
+      _arg_list[i]->print(indent+1);
+    }
+  }
+}; 
+
+class FunctionCallAST : public ExprAST {
+  ExprAST* _name;
+  ArgListAST* _argument_list;
+
+  public:
+  FunctionCallAST(ExprAST* name, ArgListAST* argument_list) : _name(name), _argument_list(argument_list) { }
+  FunctionCallAST(ExprAST* name) : _name(name), _argument_list(nullptr) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "Function Call " << endl;
+    _name->print(indent+1);
+    if (_argument_list != nullptr) _argument_list->print(indent+1);
+  }
+
+  llvm::Value* codegen() override;
+};
+
 class BlockItemListAST : public NodeAST {
   std::vector<BlockItemAST*> _items;
 

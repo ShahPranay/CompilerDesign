@@ -457,6 +457,19 @@ void FunctionDeclaratorAST::codegen(Type* specifier_type)
 
 void IdDeclaratorAST::codegen(Type* specifier_type)
 {
-  cout << _name << endl;
-  LogErrorV("Not Implemented yet");
+  // Check if the identifier has already been declared in the current scope
+    if (nested_symbols.back().find(_name) != nested_symbols.back().end())
+    {
+        LogErrorV("Redefinition of variable: ");
+        return;
+    }
+
+    // Create an alloca instruction for the variable
+    AllocaInst* Alloca = llvm_builder->CreateAlloca(specifier_type, nullptr, _name);
+
+    // Add the variable to the current symbol table
+    nested_symbols.back()[_name] = Alloca;
+
+    // Print the name of the variable (optional)
+    cout << "Declared variable: " << _name << endl;
 }

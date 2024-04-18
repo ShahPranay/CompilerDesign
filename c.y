@@ -19,6 +19,8 @@ RootAST* AST_root;
   StmtAST* statement;
   ExprAST* expression;
   IdentifierAST* identifier;
+  ArgListAST* arg_list;
+  FunctionCallAST* function_call;
   BlockItemListAST* block_list;
   ParamListAST* param_list;
   ParamDeclAST* param_decl;
@@ -67,6 +69,8 @@ RootAST* AST_root;
 %type <expression> equality_expression and_expression exclusive_or_expression inclusive_or_expression constant_expression
 %type <expression> logical_and_expression logical_or_expression conditional_expression assignment_expression expression 
 %type <expression> constant string
+
+%type <arg_list> argument_expression_list
 
 %type <param_list> parameter_type_list parameter_list
 %type <param_decl> parameter_declaration
@@ -127,8 +131,8 @@ generic_association
 postfix_expression
   : primary_expression
   | postfix_expression '[' expression ']'
-  | postfix_expression '(' ')' 
-  | postfix_expression '(' argument_expression_list ')' { cout << "function call\n"; }
+  | postfix_expression '(' ')' { $$ = new FunctionCallAST($1); }
+  | postfix_expression '(' argument_expression_list ')' { $$ = new FunctionCallAST($1, $3); }
   | postfix_expression '.' IDENTIFIER
   | postfix_expression PTR_OP IDENTIFIER
   | postfix_expression INC_OP
@@ -138,8 +142,8 @@ postfix_expression
   ;
 
 argument_expression_list
-  : assignment_expression
-  | argument_expression_list ',' assignment_expression
+  : assignment_expression { $$ = new ArgListAST(); $$->insertArg($1); }
+  | argument_expression_list ',' assignment_expression { $$ = $1; $$->insertArg($3); }
   ;
 
 unary_expression
