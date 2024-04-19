@@ -530,7 +530,7 @@ class InitializerAST : public NodeAST {
     else _assignment_expression->print(indent);
   }
 
-  llvm::Value* codegen();
+  //llvm::Value* codegen();
 };
 
 
