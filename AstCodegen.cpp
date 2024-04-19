@@ -8,8 +8,8 @@
 
 #include "AstNodes.h"
 
-#include<stack>
-#include<map>
+#include <stack>
+#include <map>
 #include <iostream>
 
 using std::cout, std::endl;
@@ -489,19 +489,12 @@ void FunctionDeclaratorAST::codegen(Type* specifier_type)
 
 void IdDeclaratorAST::codegen(Type* specifier_type)
 {
-  // Check if the identifier has already been declared in the current scope
     if (nested_symbols.back().find(_name) != nested_symbols.back().end())
     {
-        LogErrorV("Redefinition of variable: ");
+        LogErrorV("Variable already exists");
         return;
     }
-
-    // Create an alloca instruction for the variable
     AllocaInst* Alloca = llvm_builder->CreateAlloca(specifier_type, nullptr, _name);
-
-    // Add the variable to the current symbol table
     nested_symbols.back()[_name] = Alloca;
-
-    // Print the name of the variable (optional)
-    cout << "Declared variable: " << _name << endl;
+    //cout << "Declared variable: " << _name << endl;
 }
