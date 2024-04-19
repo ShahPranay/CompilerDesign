@@ -104,6 +104,7 @@ class IdentifierAST : public ExprAST {
 
   llvm::Value* codegen() override;
   llvm::AllocaInst* getAlloca();
+  virtual std::string getName() { return _name; }
 
   virtual void print(int indent) { 
     printIndent(indent); 
@@ -234,6 +235,10 @@ class ArgListAST : public ExprAST {
       _arg_list[i]->print(indent+1);
     }
   }
+
+  virtual llvm::Value* codegen() { return nullptr; }
+  std::vector<ExprAST*> getArgs() { return _arg_list; }
+  int getSize() { return _arg_list.size(); }
 }; 
 
 class FunctionCallAST : public ExprAST {
@@ -251,7 +256,9 @@ class FunctionCallAST : public ExprAST {
     if (_argument_list != nullptr) _argument_list->print(indent+1);
   }
 
-  llvm::Value* codegen() override;
+  virtual llvm::Value* codegen() override;
+  int getSize() { return _argument_list->getSize(); }
+  std::vector<ExprAST*> getArgs() { return _argument_list->getArgs(); }
 };
 
 class BlockItemListAST : public NodeAST {

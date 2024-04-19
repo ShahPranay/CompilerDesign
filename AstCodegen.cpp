@@ -308,6 +308,38 @@ Value* WhileStmtAST::codegen()
   return nullptr;
 }
 
+Value* FunctionCallAST::codegen() {
+  Function *CalleeF = llvm_module->getFunction(static_cast<IdentifierAST*>(_name)->getName());
+  if (!CalleeF) {
+    LogErrorV("Unknown Function Referenced");
+    return nullptr;
+  }
+
+  if (_argument_list) {
+    if (CalleeF->arg_size() != _argument_list->getSize()) {
+      LogErrorV("Incorrect number of arguments passed");
+      return nullptr;
+    }
+  } else {
+    if (CalleeF->arg_size() != 0) {
+      LogErrorV("Incorrect number of arguments passed");
+      return nullptr;
+    }
+  }
+
+  std::vector<llvm::Value*> ArgsV;
+  if (_argument_list) {
+    for (auto &arg : _argument_list->getArgs()) {
+      ArgsV.push_back(arg->codegen());
+      if (!ArgsV.back()) {
+        return nullptr;
+      }
+    }
+  }
+  
+  return llvm_builder->CreateCall(CalleeF, ArgsV, "calltmp");
+}
+
 void RootAST::codegen()
 {
   for(auto ed: _extern_units)
