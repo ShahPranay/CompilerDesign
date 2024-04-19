@@ -81,6 +81,9 @@ AllocaInst* IdentifierAST::getAlloca()
 Value* IdentifierAST::codegen() 
 {
   AllocaInst *A = getAlloca();
+  if (!A) {
+    return nullptr;  // If allocation instruction not found, return nullptr
+  }
   return llvm_builder->CreateLoad(A->getAllocatedType(), A, _name.c_str());
 }
 
@@ -451,6 +454,17 @@ void FunctionDefinitionAST::codegen()
   verifyFunction(*F);
 }
 
+/*Value* InitializerAST::codegen() {
+  if (_init_list) {
+    return _init_list->codegen();
+  } else if (_assignment_expression) {
+    return _assignment_expression->codegen();
+  } else {
+    LogErrorV("No initializer");
+    return nullptr;
+  }
+}*/
+
 void NormalDeclAST::codegen()
 {
   _init_decl_list->codegen(_specs->getLLVMType());
@@ -468,7 +482,7 @@ void InitDeclaratorAST::codegen(Type* specifier_type)
 {
   _direct_decl->codegen(specifier_type);
 
-  // handle initializations
+  //handle Initializer
 }
 
 void FunctionDeclaratorAST::codegen(Type* specifier_type)

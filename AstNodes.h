@@ -487,7 +487,7 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
   }
 
   virtual std::string getName() override { return _name; }
-
+  llvm::AllocaInst* getAlloca();
   virtual void codegen(llvm::Type* specifier_type) override;
 };
 
@@ -529,13 +529,14 @@ class InitializerAST : public NodeAST {
     if (_init_list != nullptr) _init_list->print(indent);
     else _assignment_expression->print(indent);
   }
+
+  llvm::Value* codegen();
 };
 
 
 class InitDeclaratorAST : public NodeAST {
   DirectDeclaratorAST* _direct_decl;
   InitializerAST* _initializer;
-  // TODO: class to store initializer
 
   public:
   InitDeclaratorAST(DirectDeclaratorAST* ddecl) : _direct_decl(ddecl), _initializer(nullptr) {  }
