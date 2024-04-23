@@ -280,6 +280,16 @@ class BlockItemListAST : public NodeAST {
     }
   }
 
+  bool isReturnPresent() { 
+    bool present = false;
+    for(auto item: _items) {
+      if (dynamic_cast<ReturnStmtAST*>(item)) {
+        present = true;
+      }
+    }
+    return present;
+  }
+
   llvm::Value* codegen();
 };
 
@@ -509,6 +519,8 @@ class FunctionDefinitionAST : public ExternalDeclsAST {
     if (_func_declarator != nullptr) _func_declarator->print(indent+1);
     if (_compound_stmts != nullptr) _compound_stmts->print(indent+1);
   }
+
+  bool isReturnPresent() { return _compound_stmts->isReturnPresent(); }
 
   void codegen() override;
 
