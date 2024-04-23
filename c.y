@@ -32,6 +32,10 @@ RootAST* AST_root;
   InitDeclaratorListAST* init_decl_list;
   InitDeclaratorAST* init_decl;
   InitializerAST* initializer_ast;
+  InitializerListAST* initializer_list_ast;
+  DesignationAST* designation_ast;
+  DesignatorAST* designator_ast;
+  DesignatorListAST* designator_list_ast;
 
   TypeQualListAST* type_qual_list;
   TypeQualifierAST* type_qual;
@@ -84,7 +88,11 @@ RootAST* AST_root;
 %type <init_decl_list> init_declarator_list
 %type <init_decl> init_declarator
 %type <initializer_ast> initializer 
+%type <initializer_list_ast> initializer_list
 %type <ptr_ast> pointer
+%type <designation_ast> designation
+%type <designator_ast> designator
+%type <designator_list_ast> designator_list
 
 %start translation_unit
 
@@ -487,16 +495,16 @@ direct_abstract_declarator
   ;
 
 initializer
-  : '{' initializer_list '}'
-  | '{' initializer_list ',' '}'
+  : '{' initializer_list '}' { $$ = new InitializerAST($2); }
+  | '{' initializer_list ',' '}' { $$ = new InitializerAST($2); }
   | assignment_expression { $$ = new InitializerAST($1); }
   ;
 
 initializer_list
-  : designation initializer
-  | initializer
-  | initializer_list ',' designation initializer
-  | initializer_list ',' initializer
+  : designation initializer { $$ = new InitializerListAST(); $$->insertDesignationInitializer( new DesignationInitializerAST($1, $2) ); }
+  | initializer { $$ = new InitializerListAST(); $$->insertDesignationInitializer( new DesignationInitializerAST($1) ); }
+  | initializer_list ',' designation initializer { $1->insertDesignationInitializer( new DesignationInitializerAST($3, $4) ); $$ = $1; }
+  | initializer_list ',' initializer { $1->insertDesignationInitializer( new DesignationInitializerAST($3) ); $$ = $1; }
   ;
 
 designation
@@ -504,13 +512,13 @@ designation
   ;
 
 designator_list
-  : designator
-  | designator_list designator
+  : designator { $$ = new DesignatorListAST(); $$->insertDesignator($1); }
+  | designator_list designator { $1->insertDesignator($2); $$ = $1; }
   ;
 
 designator
-  : '[' constant_expression ']'
-  | '.' IDENTIFIER
+  : '[' constant_expression ']' { $$ = new DesignatorAST($2); }
+  | '.' IDENTIFIER { $$ = new DesignatorAST($2); }
   ;
 
 static_assert_declaration

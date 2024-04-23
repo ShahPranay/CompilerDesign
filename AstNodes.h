@@ -526,9 +526,73 @@ class FunctionDefinitionAST : public ExternalDeclsAST {
 
 };
 
+class DesignationAST : public NodeAST {
+};
+
+class DesignatorAST : public NodeAST {
+  ExprAST* _expr;
+
+  public:
+  DesignatorAST(ExprAST* expr) : _expr(expr) { }
+
+  virtual void print(int indent) {
+    _expr->print(indent);
+  }
+};
+
+class DesignatorListAST : public DesignationAST {
+  std::vector<DesignatorAST*> _designator_list;
+
+  public:
+  DesignatorListAST() { }
+  void insertDesignator(DesignatorAST* designator) { _designator_list.push_back(designator); }
+
+  virtual void print(int indent) {
+    for(int i=0; i<_designator_list.size(); i++) {
+      printIndent(indent);
+      cout << "Designator " << i+1 << endl;
+      _designator_list[i]->print(indent+1); 
+    }
+  }
+
+};
+
+class DesignationInitializerAST : public NodeAST {
+  DesignationAST* _designation;
+  InitializerAST* _initializer;
+
+  public:
+  DesignationInitializerAST(DesignationAST* designation, InitializerAST* initializer) : _designation(designation), _initializer(initializer) { }
+  DesignationInitializerAST(InitializerAST* initializer) : _designation(nullptr), _initializer(initializer) { }
+
+  virtual void print(int indent) {
+    if (_designation != nullptr) 
+    {
+      printIndent(indent);
+      cout << "Designation" << endl;
+      _designation->print(indent+1);
+    }
+    printIndent(indent);
+    cout << "Initializer" << endl;
+    _initializer->print(indent+1);
+  }
+};
+
 
 class InitializerListAST : public NodeAST {
-  // TODO: implement
+  std::vector<DesignationInitializerAST*> _initializer_list;
+
+  public:
+  InitializerListAST() { }
+  void insertDesignationIntializer(DesignationInitializerAST* designation_initializer) { _initializer_list.push_back(designation_initializer); }
+
+  virtual void print(int indent) {
+    for (int i = 0; i < _initializer_list.size(); i++) {
+      printIndent(indent);
+      cout << "Initializer List Element " << i+1 << endl;
+      _initializer_list[i]->print(indent+1);
+    }
+  }
 };
 
 class InitializerAST : public NodeAST {
