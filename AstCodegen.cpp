@@ -219,7 +219,7 @@ Value* IfElseStmtAST::codegen()
 
   ThenBB = llvm_builder->GetInsertBlock();
 
-  TheFunction->getBasicBlockList().push_back(ElseBB);
+  TheFunction->insert(TheFunction->end(), ElseBB);
   llvm_builder->SetInsertPoint(ElseBB);
   Value* ElseV = nullptr;
   if (_else_statement)
@@ -235,7 +235,7 @@ Value* IfElseStmtAST::codegen()
 
   ElseBB = llvm_builder->GetInsertBlock();
 
-  TheFunction->getBasicBlockList().push_back(MergeBB);
+  TheFunction->insert(TheFunction->end(), MergeBB);
   llvm_builder->SetInsertPoint(MergeBB);
   PHINode* PN = llvm_builder->CreatePHI(Type::getVoidTy(*llvm_context), 2, "iftmp");
   PN->addIncoming(ThenV, ThenBB);
@@ -264,11 +264,13 @@ Value* ReturnStmtAST::codegen()
 
       return llvm_builder->CreateRet(RetVal);
   } else {
+      cout << "void return" << endl;
       Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
       if (!TheFunction->getReturnType()->isVoidTy()) {
           LogErrorV("Return type mismatch");
           return nullptr;
       }
+
 
       return llvm_builder->CreateRetVoid();
   }
@@ -299,13 +301,13 @@ Value* WhileStmtAST::codegen()
 
   llvm_builder->CreateCondBr(ConditionValue, LoopBlock, AfterBlock);
 
-  TheFunction->getBasicBlockList().push_back(LoopBlock);
+  TheFunction->insert(TheFunction->end(), LoopBlock);
   llvm_builder->SetInsertPoint(LoopBlock);
   _statement->codegen();
 
   llvm_builder->CreateBr(CondBlock);
 
-  TheFunction->getBasicBlockList().push_back(AfterBlock);
+  TheFunction->insert(TheFunction->end(), AfterBlock);
   llvm_builder->SetInsertPoint(AfterBlock);
 
   return nullptr;

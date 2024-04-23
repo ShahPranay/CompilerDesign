@@ -215,7 +215,8 @@ class ReturnStmtAST : public StmtAST {
   virtual void print(int indent) {
     printIndent(indent);
     cout << "Return\n";
-    _expr->print(indent);
+    if (_expr)
+      _expr->print(indent);
   }
 
   llvm::Value* codegen() override;

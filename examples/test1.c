@@ -6,6 +6,6 @@ void simple_arith() {
 }
 
 void simple_arith_with_arg(int d) {
-  /* (d > d/2) || (d >= 100) && (d < 99); */
+  d = (d > d/2) || (d >= 100) && (d < 99);
   d = 3 - 5;
 }
