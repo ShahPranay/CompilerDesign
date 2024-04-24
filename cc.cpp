@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 #include <assert.h>
+#include <system_error>
 #include "AstNodes.h"
 #include <iostream>
 #include "c.tab.hpp"
@@ -28,11 +30,24 @@ void dump_ast() {
   AST_root->print(0);
 }
 
-void codegen()
+void codegen(char const *filename)
 {
   initialize_module();
   AST_root->codegen();
-  llvm_module->print(llvm::errs(), nullptr);
+
+  std::string outfilename(filename);
+  int e = outfilename.size() - 1;
+  while(e >= 0 && outfilename[e] != '.')
+  {
+    outfilename.pop_back();
+    e--;
+  }
+  outfilename.pop_back();
+  outfilename += "_cc.ll";
+
+  std::error_code EC;
+  llvm::raw_fd_ostream outstream(outfilename, EC);
+  llvm_module->print(outstream, nullptr);
   cleanup_module();
 }
 
@@ -52,7 +67,7 @@ main(int argc, char **argv)
   printf("retv = %d\n", ret);
 
   dump_ast();
-  codegen();
+  codegen(filename);
 
   exit(0);
 }
