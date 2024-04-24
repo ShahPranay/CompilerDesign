@@ -312,14 +312,18 @@ Value* WhileStmtAST::codegen()
 
   llvm_builder->CreateCondBr(ConditionValue, LoopBlock, AfterBlock);
 
+
   TheFunction->insert(TheFunction->end(), LoopBlock);
   llvm_builder->SetInsertPoint(LoopBlock);
+  cout << "before stmt" << endl;
   _statement->codegen();
+  cout << "after stmt" << endl;
 
   llvm_builder->CreateBr(CondBlock);
 
   TheFunction->insert(TheFunction->end(), AfterBlock);
   llvm_builder->SetInsertPoint(AfterBlock);
+
 
   return nullptr;
 }

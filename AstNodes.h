@@ -262,7 +262,7 @@ class FunctionCallAST : public ExprAST {
   std::vector<ExprAST*> getArgs() { return _argument_list->getArgs(); }
 };
 
-class BlockItemListAST : public NodeAST {
+class BlockItemListAST : public StmtAST {
   std::vector<BlockItemAST*> _items;
 
   public:
