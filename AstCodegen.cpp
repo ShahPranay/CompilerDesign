@@ -112,12 +112,23 @@ Value* BinaryExprAST::codegen() {
     return R;
   }
 
-  Value* L = left->codegen();
-  Value* R = right->codegen();
+  Value *L, *R;
+  L = left->codegen();
+  R = right->codegen();
   if (!L || !R)
     return nullptr;
 
-  if (L->getType()->isIntegerTy(32) && R->getType()->isIntegerTy(32)) {
+  if(op == "||")
+  {
+    if (L->getType()->isIntegerTy(1) && R->getType()->isIntegerTy(1))
+      return llvm_builder->CreateOr(L, R, "cmptmp"); 
+  }
+  else if(op == "&&")
+  {
+    if (L->getType()->isIntegerTy(1) && R->getType()->isIntegerTy(1))
+      return llvm_builder->CreateAnd(L, R, "cmptmp"); 
+  }
+  else if (L->getType()->isIntegerTy(32) && R->getType()->isIntegerTy(32)) {
     if (op == "+")
       return llvm_builder->CreateAdd(L, R, "addtmp");
     if (op == "-")
@@ -452,7 +463,28 @@ void FunctionDefinitionAST::codegen()
   }
 
   // body codgen
+  bool no_ret = false;
+  Type *ret_type = _decl_specs->getLLVMType();
+  Value *ret_alloca = nullptr;
+  no_ret = !isReturnPresent();
+
+  if(no_ret && !ret_type->isVoidTy())
+  {
+    ret_alloca = CreateEntryBlockAlloca(F, "dummy_ret", ret_type);
+  }
+
   _compound_stmts->codegen();
+
+  if(no_ret)
+  {
+    if(ret_alloca)
+    {
+      Value * ret_value = llvm_builder->CreateLoad(ret_type, ret_alloca, "retval");
+      llvm_builder->CreateRet(ret_value);
+    }
+    else
+      llvm_builder->CreateRetVoid();
+  }
   verifyFunction(*F);
 }
 

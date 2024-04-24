@@ -530,14 +530,31 @@ class DesignationAST : public NodeAST {
 };
 
 class DesignatorAST : public NodeAST {
+
+};
+
+class ArrayDesignatorAST : public DesignatorAST {
   ExprAST* _expr;
 
   public:
-  DesignatorAST(ExprAST* expr) : _expr(expr) { }
+  ArrayDesignatorAST(ExprAST* expr) : _expr(expr) { }
 
   virtual void print(int indent) {
     _expr->print(indent);
   }
+};
+
+class IdDesignatorAST : public DesignatorAST {
+  std::string _id; 
+
+  public:
+    IdDesignatorAST(const std::string& id) : _id (id) {  }
+
+    void print(int indent)
+    {
+      printIndent(indent);
+      cout << _id << endl;
+    }
 };
 
 class DesignatorListAST : public DesignationAST {
@@ -557,59 +574,61 @@ class DesignatorListAST : public DesignationAST {
 
 };
 
-class DesignationInitializerAST : public NodeAST {
-  DesignationAST* _designation;
-  InitializerAST* _initializer;
-
-  public:
-  DesignationInitializerAST(DesignationAST* designation, InitializerAST* initializer) : _designation(designation), _initializer(initializer) { }
-  DesignationInitializerAST(InitializerAST* initializer) : _designation(nullptr), _initializer(initializer) { }
-
-  virtual void print(int indent) {
-    if (_designation != nullptr) 
-    {
-      printIndent(indent);
-      cout << "Designation" << endl;
-      _designation->print(indent+1);
-    }
-    printIndent(indent);
-    cout << "Initializer" << endl;
-    _initializer->print(indent+1);
-  }
-};
-
-
-class InitializerListAST : public NodeAST {
-  std::vector<DesignationInitializerAST*> _initializer_list;
-
-  public:
-  InitializerListAST() { }
-  void insertDesignationIntializer(DesignationInitializerAST* designation_initializer) { _initializer_list.push_back(designation_initializer); }
-
-  virtual void print(int indent) {
-    for (int i = 0; i < _initializer_list.size(); i++) {
-      printIndent(indent);
-      cout << "Initializer List Element " << i+1 << endl;
-      _initializer_list[i]->print(indent+1);
-    }
-  }
-};
 
 class InitializerAST : public NodeAST {
-  InitializerListAST* _init_list;
+  DesignationAST *_designation;
   ExprAST* _assignment_expression;
+
   public:
-  InitializerAST(ExprAST* ass_expr) : _init_list(nullptr), _assignment_expression(ass_expr) { }  
-  InitializerAST(InitializerListAST* init_list) : _init_list(init_list), _assignment_expression(nullptr) {  }
+  InitializerAST() : _designation(nullptr), _assignment_expression(nullptr) {  }
+  InitializerAST(ExprAST* ass_expr) : _designation(nullptr), _assignment_expression(ass_expr) { }  
+
+  void setDesignation(DesignationAST *des) { _designation = des; }
 
   virtual void print(int indent) {
-    if (_init_list != nullptr) _init_list->print(indent);
-    else _assignment_expression->print(indent);
+    /* if (_init_list != nullptr) _init_list->print(indent); */
+    /* else _assignment_expression->print(indent); */
   }
 
   //llvm::Value* codegen();
 };
 
+class InitializerListAST : public InitializerAST {
+  std::vector<InitializerAST *> _initializer_list;
+
+  public:
+  InitializerListAST() { }
+  void insertElem(InitializerAST *item) { _initializer_list.push_back(item); }
+
+  virtual void print(int indent) {
+    /* for (int i = 0; i < _initializer_list.size(); i++) { */
+    /*   printIndent(indent); */
+    /*   cout << "Initializer List Element " << i+1 << endl; */
+    /*   _initializer_list[i]->print(indent+1); */
+    /* } */
+  }
+};
+
+/* class DesignationInitializerAST : public NodeAST { */
+/*   DesignationAST* _designation; */
+/*   InitializerAST* _initializer; */
+
+/*   public: */
+/*   DesignationInitializerAST(DesignationAST* designation, InitializerAST* initializer) : _designation(designation), _initializer(initializer) { } */
+/*   DesignationInitializerAST(InitializerAST* initializer) : _designation(nullptr), _initializer(initializer) { } */
+
+/*   virtual void print(int indent) { */
+/*     if (_designation != nullptr) */ 
+/*     { */
+/*       printIndent(indent); */
+/*       cout << "Designation" << endl; */
+/*       _designation->print(indent+1); */
+/*     } */
+/*     printIndent(indent); */
+/*     cout << "Initializer" << endl; */
+/*     _initializer->print(indent+1); */
+/*   } */
+/* }; */
 
 class InitDeclaratorAST : public NodeAST {
   DirectDeclaratorAST* _direct_decl;
