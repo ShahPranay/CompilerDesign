@@ -19,6 +19,7 @@ RootAST* AST_root;
   StmtAST* statement;
   ExprAST* expression;
   IdentifierAST* identifier;
+  StrLiteralAST* strliteral;
   ArgListAST* arg_list;
   FunctionCallAST* function_call;
   BlockItemListAST* block_list;
@@ -72,7 +73,7 @@ RootAST* AST_root;
 %type <expression> multiplicative_expression additive_expression shift_expression relational_expression 
 %type <expression> equality_expression and_expression exclusive_or_expression inclusive_or_expression constant_expression
 %type <expression> logical_and_expression logical_or_expression conditional_expression assignment_expression expression 
-%type <expression> constant string
+%type <expression> constant 
 
 %type <arg_list> argument_expression_list
 
@@ -93,6 +94,7 @@ RootAST* AST_root;
 %type <designation_ast> designation
 %type <designator_ast> designator
 %type <designator_list_ast> designator_list
+%type <strliteral> string
 
 %start translation_unit
 
@@ -118,7 +120,7 @@ enumeration_constant		/* before it has been defined as such */
   ;
 
 string
-  : STRING_LITERAL
+  : STRING_LITERAL { $$ = new StrLiteralAST(*$1); }
   | FUNC_NAME
   ;
 

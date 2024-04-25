@@ -2,6 +2,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Verifier.h"
@@ -72,10 +73,23 @@ AllocaInst* IdentifierAST::getAlloca()
 
   if (!A)
   {
+    cout << _name << endl;
     LogErrorV("Unknown Identifier name");
   }
 
   return A;
+}
+
+Value* StrLiteralAST::codegen()
+{
+  /* ArrayType *strtype = ArrayType::get(Type::getInt8Ty(*llvm_context), _str.size()); */
+  /* GlobalVariable *globalvar = new GlobalVariable(*llvm_module, strtype, false, GlobalValue::ExternalLinkage, nullptr, ""); */
+  /* globalvar->setInitializer(ConstantDataArray::getString(*llvm_context, _str, false)); */
+  /* globalvar->setConstant(true); */
+
+  /* globalvar->setAlignment(MaybeAlign(1)); */
+
+  return llvm_builder->CreateGlobalString(_str, "str");
 }
 
 Value* IdentifierAST::codegen() 
@@ -248,14 +262,14 @@ Value* IfElseStmtAST::codegen()
 
   TheFunction->insert(TheFunction->end(), MergeBB);
   llvm_builder->SetInsertPoint(MergeBB);
-  PHINode* PN = llvm_builder->CreatePHI(Type::getVoidTy(*llvm_context), 2, "iftmp");
-  PN->addIncoming(ThenV, ThenBB);
-  if (_else_statement)
-  {
-      PN->addIncoming(ElseV, ElseBB);
-  }
+  /* PHINode* PN = llvm_builder->CreatePHI(Type::getVoidTy(*llvm_context), 2, "iftmp"); */
+  /* PN->addIncoming(ThenV, ThenBB); */
+  /* if (_else_statement) */
+  /* { */
+  /*     PN->addIncoming(ElseV, ElseBB); */
+  /* } */
 
-  return PN;
+  return nullptr;
 }
 
 Value* ReturnStmtAST::codegen()
@@ -315,9 +329,7 @@ Value* WhileStmtAST::codegen()
 
   TheFunction->insert(TheFunction->end(), LoopBlock);
   llvm_builder->SetInsertPoint(LoopBlock);
-  cout << "before stmt" << endl;
   _statement->codegen();
-  cout << "after stmt" << endl;
 
   llvm_builder->CreateBr(CondBlock);
 
@@ -370,11 +382,15 @@ void RootAST::codegen()
 
 Value* BlockItemListAST::codegen()
 {
+  nested_symbols.push_back({});
+
   Value* laststmt;
   for(auto bi: _items)
   {
     laststmt = bi->codegen();
   }
+
+  nested_symbols.pop_back();
   return laststmt;
 }
 
@@ -516,10 +532,36 @@ void InitDeclaratorListAST::codegen(Type* specifier_type)
   }
 }
 
+Value *InitializerAST::codegen()
+{
+  return _assignment_expression->codegen();
+}
+
+Value *InitializerListAST::codegen()
+{
+  LogErrorV("InitDeclaratorListAST codegen not implemented yet");
+  return nullptr;
+}
+
 void InitDeclaratorAST::codegen(Type* specifier_type)
 {
-  _direct_decl->codegen(specifier_type);
+  Function *F = llvm_builder->GetInsertBlock()->getParent();
+  AllocaInst *A = CreateEntryBlockAlloca(F, _direct_decl->getName(), specifier_type);  
+  Value *val = nullptr; 
 
+
+  if (_initializer)
+  {
+    val = _initializer->codegen();
+    if (!val)
+    {
+      LogErrorV("expression did not return a value");
+      return;
+    }
+    llvm_builder->CreateStore(val, (Value *) A);
+  }
+
+  nested_symbols.back()[_direct_decl->getName()] = A;
   //handle Initializer
 }
 

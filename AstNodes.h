@@ -96,6 +96,19 @@ class DoubleExprAST : public ExprAST {
   }
 };
 
+class StrLiteralAST : public ExprAST {
+  std::string _str;
+
+  public:
+  StrLiteralAST(const std::string& str) : _str ( str ) {  }
+
+  llvm::Value* codegen() override;
+  void print(int indent) {
+    printIndent(indent);
+    cout << "Str Literal: " << _str << endl;
+  }
+};
+
 class IdentifierAST : public ExprAST {
   std::string _name;
 
@@ -586,11 +599,11 @@ class InitializerAST : public NodeAST {
   void setDesignation(DesignationAST *des) { _designation = des; }
 
   virtual void print(int indent) {
-    /* if (_init_list != nullptr) _init_list->print(indent); */
-    /* else _assignment_expression->print(indent); */
+    if (_designation) _designation->print(indent);
+    _assignment_expression->print(indent);
   }
 
-  //llvm::Value* codegen();
+  virtual llvm::Value* codegen();
 };
 
 class InitializerListAST : public InitializerAST {
@@ -607,28 +620,9 @@ class InitializerListAST : public InitializerAST {
     /*   _initializer_list[i]->print(indent+1); */
     /* } */
   }
+
+  llvm::Value* codegen() override;
 };
-
-/* class DesignationInitializerAST : public NodeAST { */
-/*   DesignationAST* _designation; */
-/*   InitializerAST* _initializer; */
-
-/*   public: */
-/*   DesignationInitializerAST(DesignationAST* designation, InitializerAST* initializer) : _designation(designation), _initializer(initializer) { } */
-/*   DesignationInitializerAST(InitializerAST* initializer) : _designation(nullptr), _initializer(initializer) { } */
-
-/*   virtual void print(int indent) { */
-/*     if (_designation != nullptr) */ 
-/*     { */
-/*       printIndent(indent); */
-/*       cout << "Designation" << endl; */
-/*       _designation->print(indent+1); */
-/*     } */
-/*     printIndent(indent); */
-/*     cout << "Initializer" << endl; */
-/*     _initializer->print(indent+1); */
-/*   } */
-/* }; */
 
 class InitDeclaratorAST : public NodeAST {
   DirectDeclaratorAST* _direct_decl;
@@ -639,14 +633,16 @@ class InitDeclaratorAST : public NodeAST {
   InitDeclaratorAST(DirectDeclaratorAST* ddecl, InitializerAST* initdecl) : _direct_decl(ddecl), _initializer(initdecl) {  }
 
   virtual void print(int indent) {
+    printIndent(indent);
+    cout << "Init Declarator" << endl;
+    indent++;
+    _direct_decl->print(indent);
+
     if (_initializer) {
-      _direct_decl->print(indent+1);
       printIndent(indent);
       cout << "Op : =" << endl;
       _initializer->print(indent+1);
-    } else {
-      _direct_decl->print(indent);
-    }
+    } 
   }
 
   void codegen(llvm::Type* codegen);
@@ -662,8 +658,9 @@ class InitDeclaratorListAST : public NodeAST {
   virtual void print(int indent) {
     printIndent(indent);
     cout << "Init Declarators" << endl;
+    indent++;
     for(int i=0; i<_init_declarators.size(); i++) {
-      _init_declarators[i]->print(indent+1);
+      _init_declarators[i]->print(indent);
     }
   }
 
