@@ -63,7 +63,6 @@ class ExprAST : public NodeAST {
   virtual llvm::Value* codegen() = 0;
 };
 
-
 // Base class for all statements
 class StmtAST : public BlockItemAST {
 
@@ -157,7 +156,7 @@ class BinaryExprAST : public ExprAST {
 
   virtual llvm::Value* codegen() override;
 
-  virtual ExprAST* constantFolding(ExprAST* expr);
+  /* virtual ExprAST* constantFolding(ExprAST* expr); */
 
   virtual void print(int indent) { 
     left->print(indent+1);

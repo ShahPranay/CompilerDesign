@@ -99,77 +99,109 @@ Value* IdentifierAST::codegen() {
   return llvm_builder->CreateLoad(A->getAllocatedType(), A, _name.c_str());
 }
 
-// TODO
 Value* UnaryExprAST::codegen() {
   llvm::Value* val = _expr->codegen();
   
-  if (!val) {
+  if (!val) 
+  {
     return nullptr;
   }
 
-  if (_op == "&") {
+  if (_op == "&") 
+  {
+    return nullptr;
     //Todo
-  } else if (_op == "*") {
+  } 
+  else if (_op == "*") 
+  {
     if (!val->getType()->isPointerTy()) {
       LogErrorV("Cannot dereference non-pointer type");
       return nullptr;
     }
-    /* return llvm_builder->CreateLoad(val); */
-  } else if (_op == "+") {
+    Type *deref_ty = val->getType()->getNonOpaquePointerElementType();
+    return llvm_builder->CreateLoad(deref_ty, val, "deref_val");
+  } 
+  else if (_op == "+") 
+  {
     return val;
-  } else if (_op == "-") {
+  }
+  else if (_op == "-")
+  {
     return llvm_builder->CreateNeg(val);
-  } else if (_op == "~") {
+  }
+  else if (_op == "~") 
+  {
     return llvm_builder->CreateNot(val);
-  } else if (_op == "!") {
+  }
+  else if (_op == "!") 
+  {
     llvm::Type *boolTy = llvm::Type::getInt1Ty(*llvm_context);
     return llvm_builder->CreateICmpEQ(val, llvm::Constant::getNullValue(boolTy));
-  } else if (_op == "++") {
+  }
+  else if (_op == "++") 
+  {
     if (!val->getType()->isIntegerTy()) {
         LogErrorV("Cannot decrement non-integer type");
         return nullptr;
     }
     Value *one = llvm::ConstantInt::get(val->getType(), 1);
     return llvm_builder->CreateAdd(val, one, "increment");
-  } else if (_op == "--") {
+  }
+  else if (_op == "--") 
+  {
     if (!val->getType()->isIntegerTy()) {
         LogErrorV("Cannot decrement non-integer type");
         return nullptr;
     }
     Value *one = llvm::ConstantInt::get(val->getType(), 1);
     return llvm_builder->CreateSub(val, one, "decrement");
-  } else {
+  }
+  else 
+  {
+    cout << _op << endl;
     LogErrorV("Invalid unary operator");
     return nullptr;
   }
 }
 
 Value* BinaryExprAST::codegen() {
+  Value *L, *R;
 
   if (op == "=")
   {
-    IdentifierAST *LHSE = static_cast<IdentifierAST*>(left);
-    if (!LHSE){
-      LogErrorV("destination of \'=\' must be a variable.");
-      return nullptr;
-    }
-    
-    Value *R = right->codegen();
-    if (!R)
-      return nullptr;
-    
-    Value *VarValue = LHSE->getAlloca(); 
-    if(!VarValue)
+    Value *VarValue; 
+    IdentifierAST *LHSE = dynamic_cast<IdentifierAST*>(left);
+    if (!LHSE)
     {
-      LogErrorV("Unknown variable name.");
+      L = left->codegen();
+      if (!L->getType()->isPointerTy())
+      {
+        LogErrorV("LHS of assignment should be a memory address");
+        return nullptr;
+      }
+    }
+    else
+    {
+      L = LHSE->getAlloca(); 
+      if(!L)
+      {
+        LogErrorV("Unknown variable name on LHS.");
+        return nullptr;
+      }
+    }
+    
+    R = right->codegen();
+
+    if (!R)
+    {
+      LogErrorV("RHS did not return a value");  
       return nullptr;
     }
     
-    llvm_builder->CreateStore(R, VarValue);
+    llvm_builder->CreateStore(R, L);
     return R;
   }
 
-  Value *L, *R;
   L = left->codegen();
   R = right->codegen();
   if (!L || !R)
