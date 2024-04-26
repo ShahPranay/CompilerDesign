@@ -33,6 +33,7 @@ void dump_ast() {
 void codegen(char const *filename)
 {
   initialize_module();
+  AST_root->constantFolding();
   AST_root->codegen();
 
   std::string outfilename(filename);

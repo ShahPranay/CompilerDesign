@@ -259,24 +259,30 @@ Value* BinaryExprAST::codegen() {
       return llvm_builder->CreateFMul(L, R, "multmp");
     if (op == "/")
       return llvm_builder->CreateFDiv(L, R, "divtmp");
-    if (op == "<")
+    if (op == "<") {
       L = llvm_builder->CreateFCmpULT(L, R, "cmptmp");
       return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == ">")
+    }
+    if (op == ">") {
       L = llvm_builder->CreateFCmpUGT(L, R, "cmptmp");
       return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == "<=")
+    }
+    if (op == "<=") {
       L = llvm_builder->CreateFCmpULE(L, R, "cmptmp");
       return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == ">=")
+    }
+    if (op == ">=") {
       L = llvm_builder->CreateFCmpUGE(L, R, "cmptmp");
       return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == "==")
+    }
+    if (op == "==") {
       L = llvm_builder->CreateFCmpUEQ(L, R, "cmptmp");
       return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == "!=")
+    }
+    if (op == "!=") {
       L = llvm_builder->CreateFCmpUNE(L, R, "cmptmp");
       return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
+    }
   }
 
   LogErrorV("Invalid binary operator");
