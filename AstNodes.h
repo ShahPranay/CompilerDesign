@@ -75,6 +75,8 @@ class IntegerExprAST : public ExprAST {
   public:
   IntegerExprAST(int Val) : _val(Val) {  }
 
+  int getVal() { return _val; }
+
   virtual llvm::Value* codegen() override;
 
   virtual void print(int indent) { 
