@@ -101,6 +101,36 @@ Value* IdentifierAST::codegen()
   return llvm_builder->CreateLoad(A->getAllocatedType(), A, _name.c_str());
 }
 
+Value* UnaryExprAST::codegen() {
+  llvm::Value* val = _expr->codegen();
+  
+  if (!val) {
+    return nullptr;
+  }
+
+  if (_op == "&") {
+
+  } else if (_op == "*") {
+    
+  } else if (_op == "+") {
+    return val;
+  } else if (_op == "-") {
+    return llvm_builder->CreateNeg(val);
+  } else if (_op == "~") {
+    return llvm_builder->CreateNot(val);
+  } else if (_op == "!") {
+    llvm::Type *boolTy = llvm::Type::getInt1Ty(*llvm_context);
+    return llvm_builder->CreateICmpEQ(val, llvm::Constant::getNullValue(boolTy));
+  } else if (_op == "++") {
+    
+  } else if (_op == "--") {
+
+  } else {
+    LogErrorV("Invalid unary operator");
+    return nullptr;
+  }
+}
+
 Value* BinaryExprAST::codegen() {
 
   if (op == "=")

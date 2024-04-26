@@ -125,6 +125,24 @@ class IdentifierAST : public ExprAST {
   }
 };
 
+class UnaryExprAST : public ExprAST {
+    std::string _op;
+    ExprAST* _expr;
+
+public:
+    UnaryExprAST(const std::string& op, ExprAST* expr)
+        : _op(op), _expr(expr) { }
+
+    virtual llvm::Value* codegen() override;
+
+    virtual void print(int indent) {
+        printIndent(indent);
+        cout << "Unary Operator: " << _op << endl;
+        _expr->print(indent + 1);
+    }
+};
+
+
 // Binary expression AST node
 class BinaryExprAST : public ExprAST {
   std::string op;

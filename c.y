@@ -73,7 +73,9 @@ RootAST* AST_root;
 %type <expression> multiplicative_expression additive_expression shift_expression relational_expression 
 %type <expression> equality_expression and_expression exclusive_or_expression inclusive_or_expression constant_expression
 %type <expression> logical_and_expression logical_or_expression conditional_expression assignment_expression expression 
-%type <expression> constant 
+%type <expression> constant
+
+%type <string> unary_operator
 
 %type <arg_list> argument_expression_list
 
@@ -158,21 +160,21 @@ argument_expression_list
 
 unary_expression
   : postfix_expression
-  | INC_OP unary_expression
-  | DEC_OP unary_expression
-  | unary_operator cast_expression
+  | INC_OP unary_expression { $$ = new UnaryExprAST("++", $2); }
+  | DEC_OP unary_expression { $$ = new UnaryExprAST("--", $2); }
+  | unary_operator cast_expression { $$ = new UnaryExprAST($1, $2); }
   | SIZEOF unary_expression
   | SIZEOF '(' type_name ')'
   | ALIGNOF '(' type_name ')'
   ;
 
 unary_operator
-  : '&'
-  | '*'
-  | '+'
-  | '-'
-  | '~'
-  | '!'
+  : '&' { $$ = "&"; }
+  | '*' { $$ = "*"; }
+  | '+' { $$ = "+"; }
+  | '-' { $$ = "-"; }
+  | '~' { $$ = "~"; }
+  | '!' { $$ = "!"; }
   ;
 
 cast_expression
