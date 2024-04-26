@@ -27,285 +27,6 @@ class NodeAST {
     }
 };
 
-class ExternalDeclsAST : public NodeAST {
-  public:
-    virtual void codegen() = 0;
-};
-
-class RootAST : public NodeAST {
-  std::vector<ExternalDeclsAST*> _extern_units;    
-
-  public:
-  void codegen();
-  void insertExternalUnit(ExternalDeclsAST* unit) {
-    _extern_units.push_back(unit);
-  }
-
-  virtual void print(int indent) {
-    printIndent(indent);
-    cout << "External Units" << endl;
-    for(int i=0 ;i<_extern_units.size(); i++) {
-      _extern_units[i]->print(indent+1);
-    }
-  }
-};
-
-
-//Base class for all exressions
-class ExprAST : public NodeAST {
-  public:
-  virtual llvm::Value* codegen() = 0;
-};
-
-class BlockItemAST : public NodeAST {
-
-  public:
-    virtual llvm::Value* codegen() = 0;
-};
-
-// Base class for all statements
-class StmtAST : public BlockItemAST {
-
-};
-
-class IntegerExprAST : public ExprAST {
-  int _val;
-
-  public:
-  IntegerExprAST(int Val) : _val(Val) {  }
-
-  virtual llvm::Value* codegen() override;
-
-  virtual void print(int indent) { 
-    printIndent(indent);
-    cout << "Val : " << _val << endl; 
-  }
-};
-
-class DoubleExprAST : public ExprAST {
-  double _val;
-
-  public:
-  DoubleExprAST(double Val) : _val(Val) {}
-
-  virtual llvm::Value* codegen() override;
-
-  virtual void print(int indent) { 
-    printIndent(indent); 
-    cout << "Val : " << _val << endl; 
-  }
-};
-
-class StrLiteralAST : public ExprAST {
-  std::string _str;
-
-  public:
-  StrLiteralAST(const std::string& str) : _str ( str ) {  }
-
-  llvm::Value* codegen() override;
-  void print(int indent) {
-    printIndent(indent);
-    cout << "Str Literal: " << _str << endl;
-  }
-};
-
-class IdentifierAST : public ExprAST {
-  std::string _name;
-
-  public:
-  IdentifierAST(const std::string& name) : _name( name ) {  }
-
-  llvm::Value* codegen() override;
-  llvm::AllocaInst* getAlloca();
-  virtual std::string getName() { return _name; }
-
-  virtual void print(int indent) { 
-    printIndent(indent); 
-    cout << "ID : " << _name << endl; 
-  }
-};
-
-// Binary expression AST node
-class BinaryExprAST : public ExprAST {
-  std::string op;
-  ExprAST *left, *right;
-
-  public:
-  BinaryExprAST(const std::string& op, ExprAST* LHS, ExprAST* RHS)
-    : op(op), left(LHS), right(RHS) {}
-
-  virtual llvm::Value* codegen() override;
-
-  virtual void print(int indent) { 
-    left->print(indent+1);
-
-    printIndent(indent); 
-    cout << "Op : " << op << endl;
-
-    right->print(indent+1);
-  }
-};
-
-class ExprStmtAST : public StmtAST {
-  ExprAST* _expression;
-
-  public:
-  ExprStmtAST(ExprAST* expression) : _expression(expression) {  }
-  ExprStmtAST() : _expression(nullptr) {  }
-
-  virtual void print(int indent) {
-    if (_expression != nullptr) _expression->print(indent);
-  }
-
-  llvm::Value* codegen() override;
-};
-
-class IfElseStmtAST : public StmtAST {
-  ExprAST* _expression;
-  StmtAST* _then_statement;
-  StmtAST* _else_statement;
-
-  public:
-  IfElseStmtAST(ExprAST* expression, StmtAST* then_statement) : _expression(expression), _then_statement(then_statement), _else_statement(nullptr) {  }
-  IfElseStmtAST(ExprAST* expression, StmtAST* then_statement, StmtAST* else_statement) : _expression(expression), _then_statement(then_statement), _else_statement(else_statement) { }
-
-  virtual void print(int indent) {
-    printIndent(indent);
-    cout << "If Condition\n";
-    _expression->print(indent+1);
-    printIndent(indent);
-    cout << "Then Block\n";
-    _then_statement->print(indent+1);
-    if (_else_statement != nullptr) {
-      printIndent(indent);
-      cout << "Else Block\n";
-      _else_statement->print(indent+1);
-    }
-  }
-
-  llvm::Value* codegen() override;
-};
-
-class WhileStmtAST : public StmtAST {
-  ExprAST* _expression;
-  StmtAST* _statement;
-
-  public:
-  WhileStmtAST(ExprAST* expression, StmtAST* statement) : _expression(expression), _statement(statement) { }
-
-  virtual void print(int indent) {
-    printIndent(indent);
-    cout << "While Condition\n";
-    _expression->print(indent+1);
-    _statement->print(indent);
-  } 
-
-  llvm::Value* codegen() override;
-};
-
-class GotoStmtAST : public StmtAST {
-  IdentifierAST* _identifier;
-
-  public:
-  GotoStmtAST(const std::string& identifier) : _identifier(new IdentifierAST(identifier)) { }
-
-  virtual void print(int indent) {
-    printIndent(indent);
-    cout << "GOTO\n";
-    _identifier->print(indent+1);
-  }
-
-  llvm::Value* codegen() override;
-};
-
-class ReturnStmtAST : public StmtAST {
-  ExprAST* _expr; 
-
-  public:
-  ReturnStmtAST() : _expr(nullptr) {  }
-  ReturnStmtAST(ExprAST* expr) : _expr(expr) {  }
-
-  virtual void print(int indent) {
-    printIndent(indent);
-    cout << "Return\n";
-    if (_expr)
-      _expr->print(indent);
-  }
-
-  llvm::Value* codegen() override;
-};
-
-class ArgListAST : public ExprAST {
-  std::vector<ExprAST*> _arg_list;
-
-  public:
-  ArgListAST() { }
-  void insertArg(ExprAST* arg) { _arg_list.push_back(arg); }
-
-  virtual void print(int indent) {
-    for(int i=0; i<_arg_list.size() ; i++) {
-      printIndent(indent);
-      cout << "Arg " << i << endl;
-      _arg_list[i]->print(indent+1);
-    }
-  }
-
-  virtual llvm::Value* codegen() { return nullptr; }
-  std::vector<ExprAST*> getArgs() { return _arg_list; }
-  int getSize() { return _arg_list.size(); }
-}; 
-
-class FunctionCallAST : public ExprAST {
-  ExprAST* _name;
-  ArgListAST* _argument_list;
-
-  public:
-  FunctionCallAST(ExprAST* name, ArgListAST* argument_list) : _name(name), _argument_list(argument_list) { }
-  FunctionCallAST(ExprAST* name) : _name(name), _argument_list(nullptr) { }
-
-  virtual void print(int indent) {
-    printIndent(indent);
-    cout << "Function Call " << endl;
-    _name->print(indent+1);
-    if (_argument_list != nullptr) _argument_list->print(indent+1);
-  }
-
-  virtual llvm::Value* codegen() override;
-  int getSize() { return _argument_list->getSize(); }
-  std::vector<ExprAST*> getArgs() { return _argument_list->getArgs(); }
-};
-
-class BlockItemListAST : public StmtAST {
-  std::vector<BlockItemAST*> _items;
-
-  public:
-  BlockItemListAST() {}
-
-  void insertBlockItem(BlockItemAST *item) {
-    _items.push_back(item);
-  }
-
-  virtual void print(int indent) {
-    for(int i = 0; i<_items.size();i++) {
-      printIndent(indent);
-      cout << "Statement " << i+1 << endl;
-      _items[i]->print(indent+1);
-    }
-  }
-
-  bool isReturnPresent() { 
-    bool present = false;
-    for(auto item: _items) {
-      if (dynamic_cast<ReturnStmtAST*>(item)) {
-        present = true;
-      }
-    }
-    return present;
-  }
-
-  llvm::Value* codegen();
-};
-
 class SpecifierAST : public NodeAST {
 };
 
@@ -378,8 +99,6 @@ class PointerAST : public NodeAST {
   }
 };
 
-
-
 class DeclSpecifiersAST : public NodeAST {
   std::list<SpecifierAST*> _decl_specs;
 
@@ -400,6 +119,340 @@ class DeclSpecifiersAST : public NodeAST {
   llvm::Type* getLLVMType();
 
 };
+
+// make PointerAST and DeclSpecifiersAST lightweight (for easy copying). 
+enum BaseType
+{
+  CONSTANT, VOID, CHAR, SHORT, INT, LONG, FLOAT, DOUBLE, SIGNED, UNSIGNED, BOOL,
+};
+
+enum Qualifier
+{
+  EMPTY, CONST,
+};
+
+class TypeInfo {
+  BaseType _basetype;
+  Qualifier _basequalifier;
+  std::vector<Qualifier> _ptrinfo;
+
+  public:
+  TypeInfo(DeclSpecifiersAST *declspecs, PointerAST *ptr);
+  TypeInfo(BaseType bt, Qualifier bql = Qualifier::EMPTY) : _basetype(bt), _basequalifier(bql) {  };
+  TypeInfo() : _basetype(BaseType::CONSTANT), _basequalifier(Qualifier::EMPTY) {  }
+
+  bool iscompatible(TypeInfo *other);
+  llvm::Type *getLLVMType();
+};
+
+class FunctionTypeInfo {
+  TypeInfo *_retType;
+  std::vector<TypeInfo*> _paramTypes;
+
+  public:
+  FunctionTypeInfo(TypeInfo *rettype, std::vector<TypeInfo *> paramtypes) : _retType(rettype), _paramTypes(paramtypes) {  }
+  TypeInfo *getReturnTypeInfo() { return _retType; };
+  std::vector<llvm::Type*> getLLVMParamTypes();
+};
+
+class VarData
+{
+  public:
+  TypeInfo *type;
+  llvm::AllocaInst *allocainst;
+
+  VarData() : type(nullptr), allocainst(nullptr) {  }
+};
+
+class ExprRet {
+  TypeInfo *_type;
+  llvm::Value *_expr_value;
+
+  public:
+  ExprRet (TypeInfo *type, llvm::Value *val) : _type(type), _expr_value(val) {  }
+  TypeInfo *getType() { return _type; }
+  llvm::Value *getValue() { return _expr_value; } 
+};
+
+class ExternalDeclsAST : public NodeAST {
+  public:
+    virtual void codegen() = 0;
+};
+
+class RootAST : public NodeAST {
+  std::vector<ExternalDeclsAST*> _extern_units;    
+
+  public:
+  void codegen();
+  void insertExternalUnit(ExternalDeclsAST* unit) {
+    _extern_units.push_back(unit);
+  }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "External Units" << endl;
+    for(int i=0 ;i<_extern_units.size(); i++) {
+      _extern_units[i]->print(indent+1);
+    }
+  }
+};
+
+
+//Base class for all exressions
+class ExprAST : public NodeAST {
+  public:
+  virtual ExprRet* codegen() = 0;
+};
+
+class BlockItemAST : public NodeAST {
+
+  public:
+    virtual void codegen() = 0;
+};
+
+// Base class for all statements
+class StmtAST : public BlockItemAST {
+
+};
+
+class IntegerExprAST : public ExprAST {
+  int _val;
+
+  public:
+  IntegerExprAST(int Val) : _val(Val) {  }
+
+  virtual ExprRet* codegen() override;
+
+  virtual void print(int indent) { 
+    printIndent(indent);
+    cout << "Val : " << _val << endl; 
+  }
+};
+
+class DoubleExprAST : public ExprAST {
+  double _val;
+
+  public:
+  DoubleExprAST(double Val) : _val(Val) {}
+
+  virtual ExprRet* codegen() override;
+
+  virtual void print(int indent) { 
+    printIndent(indent); 
+    cout << "Val : " << _val << endl; 
+  }
+};
+
+class StrLiteralAST : public ExprAST {
+  std::string _str;
+
+  public:
+  StrLiteralAST(const std::string& str) : _str ( str ) {  }
+
+  ExprRet* codegen() override;
+  void print(int indent) {
+    printIndent(indent);
+    cout << "Str Literal: " << _str << endl;
+  }
+};
+
+class IdentifierAST : public ExprAST {
+  std::string _name;
+
+  public:
+  IdentifierAST(const std::string& name) : _name( name ) {  }
+
+  ExprRet* codegen() override;
+  VarData getVarData();
+  virtual std::string getName() { return _name; }
+
+  virtual void print(int indent) { 
+    printIndent(indent); 
+    cout << "ID : " << _name << endl; 
+  }
+};
+
+// Binary expression AST node
+class BinaryExprAST : public ExprAST {
+  std::string op;
+  ExprAST *left, *right;
+
+  public:
+  BinaryExprAST(const std::string& op, ExprAST* LHS, ExprAST* RHS)
+    : op(op), left(LHS), right(RHS) {}
+
+  virtual ExprRet* codegen() override;
+
+  virtual void print(int indent) { 
+    left->print(indent+1);
+
+    printIndent(indent); 
+    cout << "Op : " << op << endl;
+
+    right->print(indent+1);
+  }
+};
+
+class ExprStmtAST : public StmtAST {
+  ExprAST* _expression;
+
+  public:
+  ExprStmtAST(ExprAST* expression) : _expression(expression) {  }
+  ExprStmtAST() : _expression(nullptr) {  }
+
+  virtual void print(int indent) {
+    if (_expression != nullptr) _expression->print(indent);
+  }
+
+  void codegen() override;
+};
+
+class IfElseStmtAST : public StmtAST {
+  ExprAST* _expression;
+  StmtAST* _then_statement;
+  StmtAST* _else_statement;
+
+  public:
+  IfElseStmtAST(ExprAST* expression, StmtAST* then_statement) : _expression(expression), _then_statement(then_statement), _else_statement(nullptr) {  }
+  IfElseStmtAST(ExprAST* expression, StmtAST* then_statement, StmtAST* else_statement) : _expression(expression), _then_statement(then_statement), _else_statement(else_statement) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "If Condition\n";
+    _expression->print(indent+1);
+    printIndent(indent);
+    cout << "Then Block\n";
+    _then_statement->print(indent+1);
+    if (_else_statement != nullptr) {
+      printIndent(indent);
+      cout << "Else Block\n";
+      _else_statement->print(indent+1);
+    }
+  }
+
+  void codegen() override;
+};
+
+class WhileStmtAST : public StmtAST {
+  ExprAST* _expression;
+  StmtAST* _statement;
+
+  public:
+  WhileStmtAST(ExprAST* expression, StmtAST* statement) : _expression(expression), _statement(statement) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "While Condition\n";
+    _expression->print(indent+1);
+    _statement->print(indent);
+  } 
+
+  void codegen() override;
+};
+
+class GotoStmtAST : public StmtAST {
+  IdentifierAST* _identifier;
+
+  public:
+  GotoStmtAST(const std::string& identifier) : _identifier(new IdentifierAST(identifier)) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "GOTO\n";
+    _identifier->print(indent+1);
+  }
+
+  void codegen() override;
+};
+
+class ReturnStmtAST : public StmtAST {
+  ExprAST* _expr; 
+
+  public:
+  ReturnStmtAST() : _expr(nullptr) {  }
+  ReturnStmtAST(ExprAST* expr) : _expr(expr) {  }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "Return\n";
+    if (_expr)
+      _expr->print(indent);
+  }
+
+  void codegen() override;
+};
+
+class ArgListAST : public NodeAST {
+  std::vector<ExprAST*> _arg_list;
+
+  public:
+  ArgListAST() { }
+  void insertArg(ExprAST* arg) { _arg_list.push_back(arg); }
+
+  virtual void print(int indent) {
+    for(int i=0; i<_arg_list.size() ; i++) {
+      printIndent(indent);
+      cout << "Arg " << i << endl;
+      _arg_list[i]->print(indent+1);
+    }
+  }
+
+  std::vector<ExprAST*> getArgs() { return _arg_list; }
+  int getSize() { return _arg_list.size(); }
+}; 
+
+class FunctionCallAST : public ExprAST {
+  ExprAST* _name;
+  ArgListAST* _argument_list;
+
+  public:
+  FunctionCallAST(ExprAST* name, ArgListAST* argument_list) : _name(name), _argument_list(argument_list) { }
+  FunctionCallAST(ExprAST* name) : _name(name), _argument_list(nullptr) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "Function Call " << endl;
+    _name->print(indent+1);
+    if (_argument_list != nullptr) _argument_list->print(indent+1);
+  }
+
+  virtual ExprRet* codegen() override;
+  int getSize() { return _argument_list->getSize(); }
+  std::vector<ExprAST*> getArgs() { return _argument_list->getArgs(); }
+};
+
+class BlockItemListAST : public StmtAST {
+  std::vector<BlockItemAST*> _items;
+
+  public:
+  BlockItemListAST() {}
+
+  void insertBlockItem(BlockItemAST *item) {
+    _items.push_back(item);
+  }
+
+  virtual void print(int indent) {
+    for(int i = 0; i<_items.size();i++) {
+      printIndent(indent);
+      cout << "Statement " << i+1 << endl;
+      _items[i]->print(indent+1);
+    }
+  }
+
+  bool isReturnPresent() { 
+    bool present = false;
+    for(auto item: _items) {
+      if (dynamic_cast<ReturnStmtAST*>(item)) {
+        present = true;
+      }
+    }
+    return present;
+  }
+
+  void codegen();
+};
+
+
 
 class DirectDeclaratorAST : public NodeAST {
   protected:
@@ -490,7 +543,7 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
 
   virtual std::string getName() override { return _identifier->getName(); }
 
-  void codegen(llvm::Type* specifier_type) override;
+  void codegen(DeclSpecifiersAST* specs) override;
 };
 
 class IdDeclaratorAST : public DirectDeclaratorAST {
@@ -603,7 +656,7 @@ class InitializerAST : public NodeAST {
     _assignment_expression->print(indent);
   }
 
-  virtual llvm::Value* codegen();
+  virtual ExprRet* codegen();
 };
 
 class InitializerListAST : public InitializerAST {
@@ -621,7 +674,7 @@ class InitializerListAST : public InitializerAST {
     /* } */
   }
 
-  llvm::Value* codegen() override;
+  ExprRet* codegen() override;
 };
 
 class InitDeclaratorAST : public NodeAST {

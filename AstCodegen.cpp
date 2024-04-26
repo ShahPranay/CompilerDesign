@@ -20,14 +20,16 @@ using namespace llvm;
 LLVMContext* llvm_context;
 Module* llvm_module;
 IRBuilder<>* llvm_builder;
-std::map<std::string, AllocaInst*> global_symbols;
-std::vector<std::map<std::string, AllocaInst*>> nested_symbols;
+
+std::map<std::string, VarData> global_symbols;
+std::vector<std::map<std::string, VarData>> nested_symbols;
+std::map<std::string, FunctionTypeInfo*> function_types;
 
 void initialize_module()
 {
   llvm_context = new LLVMContext();
   llvm_module = new Module("C compiler", *llvm_context);
-  
+
   llvm_builder = new IRBuilder<>(*llvm_context);
 }
 
@@ -49,38 +51,46 @@ static AllocaInst *CreateEntryBlockAlloca(Function *F, StringRef var_name, Type 
   return TmpB.CreateAlloca(type, nullptr, var_name);
 }
 
-Value* IntegerExprAST::codegen() {
-  return ConstantInt::get(*llvm_context, APInt(32, _val, true));
+ExprRet* IntegerExprAST::codegen() {
+  TypeInfo *ty = new TypeInfo();
+  return new ExprRet(ty, ConstantInt::get(*llvm_context, APInt(32, _val, true)));
 }
 
-Value* DoubleExprAST::codegen() {
-  return ConstantFP::get(*llvm_context, APFloat(_val));
+ExprRet* DoubleExprAST::codegen() {
+  TypeInfo *ty = new TypeInfo();
+  return new ExprRet(ty, ConstantFP::get(*llvm_context, APFloat(_val)));
 }
 
-AllocaInst* IdentifierAST::getAlloca()
+VarData IdentifierAST::getVarData()
 {
-  AllocaInst* A = nullptr;
+  VarData V;
+  bool found = false;
+
   for (int i = nested_symbols.size() - 1; i >= 0; i--){
     if (nested_symbols[i].find(_name) != nested_symbols[i].end())
     {
-      A = nested_symbols[i][_name];
+      V = nested_symbols[i][_name];
+      found = true;
       break;
     }
   }
 
-  if (!A)
-    A = global_symbols[_name];
+  if (!found)
+  {
+    V = global_symbols[_name];
+    found = true;
+  }
 
-  if (!A)
+  if (!found)
   {
     cout << _name << endl;
     LogErrorV("Unknown Identifier name");
   }
 
-  return A;
+  return V;
 }
 
-Value* StrLiteralAST::codegen()
+ExprRet* StrLiteralAST::codegen()
 {
   /* ArrayType *strtype = ArrayType::get(Type::getInt8Ty(*llvm_context), _str.size()); */
   /* GlobalVariable *globalvar = new GlobalVariable(*llvm_module, strtype, false, GlobalValue::ExternalLinkage, nullptr, ""); */
@@ -88,20 +98,26 @@ Value* StrLiteralAST::codegen()
   /* globalvar->setConstant(true); */
 
   /* globalvar->setAlignment(MaybeAlign(1)); */
-
-  return llvm_builder->CreateGlobalString(_str, "str");
+  TypeInfo *ty = new TypeInfo();
+  return new ExprRet(ty, llvm_builder->CreateGlobalString(_str, "str"));
 }
 
-Value* IdentifierAST::codegen() 
+ExprRet* IdentifierAST::codegen() 
 {
-  AllocaInst *A = getAlloca();
+  VarData V = getVarData();
+  AllocaInst *A = V.allocainst;
   if (!A) {
     return nullptr;  // If allocation instruction not found, return nullptr
   }
-  return llvm_builder->CreateLoad(A->getAllocatedType(), A, _name.c_str());
+  // copy typeinfo
+  Value *val = llvm_builder->CreateLoad(A->getAllocatedType(), A, _name.c_str());
+  return new ExprRet(V.type, val);
 }
 
-Value* BinaryExprAST::codegen() {
+ExprRet* BinaryExprAST::codegen() 
+{
+  ExprRet *lret, *rret;
+  Value *L, *R, *retvalue = nullptr;
 
   if (op == "=")
   {
@@ -110,120 +126,147 @@ Value* BinaryExprAST::codegen() {
       LogErrorV("destination of \'=\' must be a variable.");
       return nullptr;
     }
-    
-    Value *R = right->codegen();
+
+    rret = right->codegen();
+    R = rret->getValue();
     if (!R)
       return nullptr;
-    
-    Value *VarValue = LHSE->getAlloca(); 
+
+    VarData lvalueData = LHSE->getVarData();
+    Value *VarValue = lvalueData.allocainst; 
     if(!VarValue)
     {
       LogErrorV("Unknown variable name.");
       return nullptr;
     }
-    
+
+    if(!lvalueData.type->iscompatible(rret->getType()))
+    {
+      LogErrorV("Types not compatible");
+      return nullptr;
+    }
+
     llvm_builder->CreateStore(R, VarValue);
-    return R;
+    return rret;
   }
 
-  Value *L, *R;
-  L = left->codegen();
-  R = right->codegen();
+  lret = left->codegen();
+  rret = right->codegen();
+
+  // typechecking
+
+  L = lret->getValue();
+  R = rret->getValue();
+
   if (!L || !R)
     return nullptr;
 
   if(op == "||")
   {
     if (L->getType()->isIntegerTy(1) && R->getType()->isIntegerTy(1))
-      return llvm_builder->CreateOr(L, R, "cmptmp"); 
+      retvalue = llvm_builder->CreateOr(L, R, "cmptmp"); 
   }
   else if(op == "&&")
   {
     if (L->getType()->isIntegerTy(1) && R->getType()->isIntegerTy(1))
-      return llvm_builder->CreateAnd(L, R, "cmptmp"); 
+      retvalue = llvm_builder->CreateAnd(L, R, "cmptmp"); 
   }
   else if (L->getType()->isIntegerTy(32) && R->getType()->isIntegerTy(32)) {
     if (op == "+")
-      return llvm_builder->CreateAdd(L, R, "addtmp");
-    if (op == "-")
-      return llvm_builder->CreateSub(L, R, "subtmp");
-    if (op == "*")
-      return llvm_builder->CreateMul(L, R, "multmp");
-    if (op == "/")
-      return llvm_builder->CreateSDiv(L, R, "divtmp");
-    if (op == "%")
-      return llvm_builder->CreateSRem(L, R, "modtmp");
-    if (op == "<")
-      return llvm_builder->CreateICmpSLT(L, R, "cmptmp");
-    if (op == ">")
-      return llvm_builder->CreateICmpSGT(L, R, "cmptmp");
-    if (op == "<=")
-      return llvm_builder->CreateICmpSLE(L, R, "cmptmp");
-    if (op == ">=")
-      return llvm_builder->CreateICmpSGE(L, R, "cmptmp");
-    if (op == "==")
-      return llvm_builder->CreateICmpEQ(L, R, "cmptmp");
-    if (op == "!=")
-      return llvm_builder->CreateICmpNE(L, R, "cmptmp");
-    if (op == "&")
-      return llvm_builder->CreateAnd(L, R, "andtmp");
-    if (op == "|")
-      return llvm_builder->CreateOr(L, R, "ortmp");
-    if (op == "^")
-      return llvm_builder->CreateXor(L, R, "xortmp");
-    if (op == "<<")
-      return llvm_builder->CreateShl(L, R, "shltmp");
-    if (op == ">>")
-      return llvm_builder->CreateAShr(L, R, "ashrtmp");
+      retvalue = llvm_builder->CreateAdd(L, R, "addtmp");
+    else if (op == "-")
+      retvalue = llvm_builder->CreateSub(L, R, "subtmp");
+    else if (op == "*")
+      retvalue = llvm_builder->CreateMul(L, R, "multmp");
+    else if (op == "/")
+      retvalue = llvm_builder->CreateSDiv(L, R, "divtmp");
+    else if (op == "%")
+      retvalue = llvm_builder->CreateSRem(L, R, "modtmp");
+    else if (op == "<")
+      retvalue = llvm_builder->CreateICmpSLT(L, R, "cmptmp");
+    else if (op == ">")
+      retvalue = llvm_builder->CreateICmpSGT(L, R, "cmptmp");
+    else if (op == "<=")
+      retvalue = llvm_builder->CreateICmpSLE(L, R, "cmptmp");
+    else if (op == ">=")
+      retvalue = llvm_builder->CreateICmpSGE(L, R, "cmptmp");
+    else if (op == "==")
+      retvalue = llvm_builder->CreateICmpEQ(L, R, "cmptmp");
+    else if (op == "!=")
+      retvalue = llvm_builder->CreateICmpNE(L, R, "cmptmp");
+    else if (op == "&")
+      retvalue = llvm_builder->CreateAnd(L, R, "andtmp");
+    else if (op == "|")
+      retvalue = llvm_builder->CreateOr(L, R, "ortmp");
+    else if (op == "^")
+      retvalue = llvm_builder->CreateXor(L, R, "xortmp");
+    else if (op == "<<")
+      retvalue = llvm_builder->CreateShl(L, R, "shltmp");
+    else if (op == ">>")
+      retvalue = llvm_builder->CreateAShr(L, R, "ashrtmp");
   } else if (L->getType()->isDoubleTy() && R->getType()->isDoubleTy()) {
     if (op == "+")
-      return llvm_builder->CreateFAdd(L, R, "addtmp");
-    if (op == "-")
-      return llvm_builder->CreateFSub(L, R, "subtmp");
-    if (op == "*")
-      return llvm_builder->CreateFMul(L, R, "multmp");
-    if (op == "/")
-      return llvm_builder->CreateFDiv(L, R, "divtmp");
-    if (op == "<")
+      retvalue = llvm_builder->CreateFAdd(L, R, "addtmp");
+    else if (op == "-")
+      retvalue = llvm_builder->CreateFSub(L, R, "subtmp");
+    else if (op == "*")
+      retvalue = llvm_builder->CreateFMul(L, R, "multmp");
+    else if (op == "/")
+      retvalue = llvm_builder->CreateFDiv(L, R, "divtmp");
+    else if (op == "<")
+    {
       L = llvm_builder->CreateFCmpULT(L, R, "cmptmp");
-      return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == ">")
+      retvalue = llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
+    }
+    else if (op == ">")
+    {
       L = llvm_builder->CreateFCmpUGT(L, R, "cmptmp");
-      return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == "<=")
+      retvalue = llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
+    }
+    else if (op == "<=")
+    {
       L = llvm_builder->CreateFCmpULE(L, R, "cmptmp");
-      return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == ">=")
+      retvalue = llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
+    }
+    else if (op == ">=")
+    {
       L = llvm_builder->CreateFCmpUGE(L, R, "cmptmp");
-      return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == "==")
+      retvalue = llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
+    }
+    else if (op == "==")
+    {
       L = llvm_builder->CreateFCmpUEQ(L, R, "cmptmp");
-      return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-    if (op == "!=")
+      retvalue = llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
+    }
+    else if (op == "!=")
+    {
       L = llvm_builder->CreateFCmpUNE(L, R, "cmptmp");
-      return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
+      retvalue = llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
+    }
   }
 
   LogErrorV("Invalid binary operator");
-  return nullptr;
+  // TODO: consider both lret and rret.
+  return new ExprRet(lret->getType(), retvalue);
 }
 
-Value* ExprStmtAST::codegen()
+void ExprStmtAST::codegen()
 {
-  return _expression->codegen();
+  _expression->codegen();
 }
 
-Value* IfElseStmtAST::codegen()
+void IfElseStmtAST::codegen()
 {
-  Value* CondV = _expression->codegen();
+  ExprRet *CondRet = _expression->codegen();
+  Value *CondV = CondRet->getValue();
   if (!CondV) {
     LogErrorV("Failed to generate code for if condition");
-    return nullptr;
+    return;
   }
 
   if (!CondV->getType()->isIntegerTy(1)) {
-      LogErrorV("If condition must be of type boolean");
-      return nullptr;
+    LogErrorV("If condition must be of type boolean");
+    return;
   }
 
   Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
@@ -234,27 +277,17 @@ Value* IfElseStmtAST::codegen()
   llvm_builder->CreateCondBr(CondV, ThenBB, ElseBB);
 
   llvm_builder->SetInsertPoint(ThenBB);
-  Value* ThenV = _then_statement->codegen();
-  if (!ThenV)
-  {
-      LogErrorV("Failed to generate code for then clause");
-      return nullptr;
-  }
+  _then_statement->codegen();
+
   llvm_builder->CreateBr(MergeBB);
 
   ThenBB = llvm_builder->GetInsertBlock();
 
   TheFunction->insert(TheFunction->end(), ElseBB);
   llvm_builder->SetInsertPoint(ElseBB);
-  Value* ElseV = nullptr;
   if (_else_statement)
   {
-      ElseV = _else_statement->codegen();
-      if (!ElseV)
-      {
-          LogErrorV("Failed to generate code for else clause");
-          return nullptr;
-      }
+    _else_statement->codegen();
   }
   llvm_builder->CreateBr(MergeBB);
 
@@ -269,45 +302,44 @@ Value* IfElseStmtAST::codegen()
   /*     PN->addIncoming(ElseV, ElseBB); */
   /* } */
 
-  return nullptr;
+  return;
 }
 
-Value* ReturnStmtAST::codegen()
+void ReturnStmtAST::codegen()
 {
   if (_expr) {
-      Value* RetVal = _expr->codegen();
-      if (!RetVal) {
-          LogErrorV("Failed to generate code for return expression");
-          return nullptr;
-      }
+    ExprRet *Ret = _expr->codegen();
+    Value *RetVal = Ret->getValue();
+    if (!RetVal) {
+      LogErrorV("Failed to generate code for return expression");
+      return;
+    }
 
-      Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
-      if (!TheFunction->getReturnType()->isVoidTy() && RetVal->getType() != TheFunction->getReturnType()) {
-          LogErrorV("Return type mismatch");
-          return nullptr;
-      }
+    Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
+    if (!TheFunction->getReturnType()->isVoidTy() && RetVal->getType() != TheFunction->getReturnType()) {
+      LogErrorV("Return type mismatch");
+      return;
+    }
 
-      return llvm_builder->CreateRet(RetVal);
+    llvm_builder->CreateRet(RetVal);
   } else {
-      cout << "void return" << endl;
-      Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
-      if (!TheFunction->getReturnType()->isVoidTy()) {
-          LogErrorV("Return type mismatch");
-          return nullptr;
-      }
+    Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
+    if (!TheFunction->getReturnType()->isVoidTy()) {
+      LogErrorV("Return type mismatch");
+      return;
+    }
 
-
-      return llvm_builder->CreateRetVoid();
+    llvm_builder->CreateRetVoid();
   }
 }
 
-Value* GotoStmtAST::codegen()
+void GotoStmtAST::codegen()
 {
   LogErrorV("goto Not implemented yet");
-  return nullptr;
+  return;
 }
 
-Value* WhileStmtAST::codegen()
+void WhileStmtAST::codegen()
 {
   Function *TheFunction = llvm_builder->GetInsertBlock()->getParent();
   BasicBlock *CondBlock = BasicBlock::Create(*llvm_context, "while.cond", TheFunction);
@@ -318,14 +350,15 @@ Value* WhileStmtAST::codegen()
 
   llvm_builder->SetInsertPoint(CondBlock);
 
-  Value *ConditionValue = _expression->codegen();
+  ExprRet *CondRet = _expression->codegen();
+  Value *ConditionValue = CondRet->getValue();
+
   if (!ConditionValue) {
     LogErrorV("Failed to generate code for condition");
-    return nullptr;
+    return;
   }
 
   llvm_builder->CreateCondBr(ConditionValue, LoopBlock, AfterBlock);
-
 
   TheFunction->insert(TheFunction->end(), LoopBlock);
   llvm_builder->SetInsertPoint(LoopBlock);
@@ -336,12 +369,12 @@ Value* WhileStmtAST::codegen()
   TheFunction->insert(TheFunction->end(), AfterBlock);
   llvm_builder->SetInsertPoint(AfterBlock);
 
-
-  return nullptr;
+  return;
 }
 
-Value* FunctionCallAST::codegen() {
-  Function *CalleeF = llvm_module->getFunction(static_cast<IdentifierAST*>(_name)->getName());
+ExprRet* FunctionCallAST::codegen() {
+  std::string funcname = static_cast<IdentifierAST*>(_name)->getName();
+  Function *CalleeF = llvm_module->getFunction(funcname);
   if (!CalleeF) {
     LogErrorV("Unknown Function Referenced");
     return nullptr;
@@ -362,14 +395,19 @@ Value* FunctionCallAST::codegen() {
   std::vector<llvm::Value*> ArgsV;
   if (_argument_list) {
     for (auto &arg : _argument_list->getArgs()) {
-      ArgsV.push_back(arg->codegen());
+      ExprRet *tmpret = arg->codegen();
+      // check type
+      ArgsV.push_back(tmpret->getValue());
+
       if (!ArgsV.back()) {
         return nullptr;
       }
     }
   }
-  
-  return llvm_builder->CreateCall(CalleeF, ArgsV, "calltmp");
+
+  Value *resultVal = llvm_builder->CreateCall(CalleeF, ArgsV, "calltmp");
+  FunctionTypeInfo *fty = function_types[funcname];
+  return new ExprRet(fty->getReturnTypeInfo(), resultVal);
 }
 
 void RootAST::codegen()
@@ -380,18 +418,16 @@ void RootAST::codegen()
   }
 }
 
-Value* BlockItemListAST::codegen()
+void BlockItemListAST::codegen()
 {
   nested_symbols.push_back({});
 
-  Value* laststmt;
   for(auto bi: _items)
   {
-    laststmt = bi->codegen();
+    bi->codegen();
   }
 
   nested_symbols.pop_back();
-  return laststmt;
 }
 
 Type* DeclSpecifiersAST::getLLVMType()
@@ -409,7 +445,7 @@ Type* DeclSpecifiersAST::getLLVMType()
     LogErrorV("Not a primitive Type Specifier");
     return nullptr;
   }
-  
+
   std::string type_name = prim_spec->getName();
   Type* ret_type = nullptr;
 
@@ -429,6 +465,7 @@ Type* DeclSpecifiersAST::getLLVMType()
 
   return ret_type;
 }
+
 
 std::vector<Type*> ParamListAST::getParamTypes()
 {
@@ -452,13 +489,15 @@ std::vector<std::string> ParamListAST::getParamNames()
 }
 
 
+// DeclSpecifiersAST + IdDeclaratorAST = TypeInfo
+// DeclSpecifiersAST + FunctionDeclaratorAST = FunctionTypeInfo
 
 void FunctionDefinitionAST::codegen()
 {
   Function *F = llvm_module->getFunction(_func_declarator->getName());
 
   if(!F)
-    _func_declarator->codegen(_decl_specs->getLLVMType());
+    _func_declarator->codegen(_decl_specs);
 
   F = llvm_module->getFunction(_func_declarator->getName());
 
@@ -505,19 +544,11 @@ void FunctionDefinitionAST::codegen()
     else
       llvm_builder->CreateRetVoid();
   }
+
+  nested_symbols.pop_back();
+
   verifyFunction(*F);
 }
-
-/*Value* InitializerAST::codegen() {
-  if (_init_list) {
-    return _init_list->codegen();
-  } else if (_assignment_expression) {
-    return _assignment_expression->codegen();
-  } else {
-    LogErrorV("No initializer");
-    return nullptr;
-  }
-}*/
 
 void NormalDeclAST::codegen()
 {
@@ -565,14 +596,21 @@ void InitDeclaratorAST::codegen(Type* specifier_type)
   //handle Initializer
 }
 
-void FunctionDeclaratorAST::codegen(Type* specifier_type)
+void FunctionDeclaratorAST::codegen(DeclSpecifierAST *specs)
 {
   // incorporate ellipsis
-  auto param_types = _paramlist->getParamTypes();
+  std::string funcname = _identifier->getName();
+  TypeInfo *RetTypeInfo = new TypeInfo(specs, _identifier);
+  auto param_typeinfos = _paramlist->getParamTypeInfos();
   auto param_names = _paramlist->getParamNames();
-  
-  FunctionType* FT = FunctionType::get(specifier_type, param_types , false);
-  Function* F = Function::Create(FT, Function::ExternalLinkage, _identifier->getName(), *llvm_module);
+
+  FunctionTypeInfo *fty = new FunctionTypeInfo(RetTypeInfo, param_typeinfos);
+  function_types[funcname] = fty;
+
+  auto param_llvmtypes = fty->getLLVMParamTypes();
+
+  FunctionType* FT = FunctionType::get(RetTypeInfo->getLLVMType(), param_llvmtypes , false);
+  Function* F = Function::Create(FT, Function::ExternalLinkage, funcname, *llvm_module);
 
   unsigned int i = 0;
   for (auto &Arg: F->args())
@@ -583,12 +621,12 @@ void FunctionDeclaratorAST::codegen(Type* specifier_type)
 
 void IdDeclaratorAST::codegen(Type* specifier_type)
 {
-    if (nested_symbols.back().find(_name) != nested_symbols.back().end())
-    {
-        LogErrorV("Variable already exists");
-        return;
-    }
-    AllocaInst* Alloca = llvm_builder->CreateAlloca(specifier_type, nullptr, _name);
-    nested_symbols.back()[_name] = Alloca;
-    //cout << "Declared variable: " << _name << endl;
+  if (nested_symbols.back().find(_name) != nested_symbols.back().end())
+  {
+    LogErrorV("Variable already exists");
+    return;
+  }
+  AllocaInst* Alloca = llvm_builder->CreateAlloca(specifier_type, nullptr, _name);
+  nested_symbols.back()[_name] = Alloca;
+  //cout << "Declared variable: " << _name << endl;
 }
