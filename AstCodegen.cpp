@@ -80,8 +80,7 @@ AllocaInst* IdentifierAST::getAlloca()
   return A;
 }
 
-Value* StrLiteralAST::codegen()
-{
+Value* StrLiteralAST::codegen() {
   /* ArrayType *strtype = ArrayType::get(Type::getInt8Ty(*llvm_context), _str.size()); */
   /* GlobalVariable *globalvar = new GlobalVariable(*llvm_module, strtype, false, GlobalValue::ExternalLinkage, nullptr, ""); */
   /* globalvar->setInitializer(ConstantDataArray::getString(*llvm_context, _str, false)); */
@@ -92,8 +91,7 @@ Value* StrLiteralAST::codegen()
   return llvm_builder->CreateGlobalString(_str, "str");
 }
 
-Value* IdentifierAST::codegen() 
-{
+Value* IdentifierAST::codegen() {
   AllocaInst *A = getAlloca();
   if (!A) {
     return nullptr;  // If allocation instruction not found, return nullptr
@@ -109,9 +107,13 @@ Value* UnaryExprAST::codegen() {
   }
 
   if (_op == "&") {
-
+    //Todo
   } else if (_op == "*") {
-    
+    if (!val->getType()->isPointerTy()) {
+      LogErrorV("Cannot dereference non-pointer type");
+      return nullptr;
+    }
+    return llvm_builder->CreateLoad(val);
   } else if (_op == "+") {
     return val;
   } else if (_op == "-") {
@@ -122,9 +124,19 @@ Value* UnaryExprAST::codegen() {
     llvm::Type *boolTy = llvm::Type::getInt1Ty(*llvm_context);
     return llvm_builder->CreateICmpEQ(val, llvm::Constant::getNullValue(boolTy));
   } else if (_op == "++") {
-    
+    if (!val->getType()->isIntegerTy()) {
+        LogErrorV("Cannot decrement non-integer type");
+        return nullptr;
+    }
+    Value *one = llvm::ConstantInt::get(val->getType(), 1);
+    return llvm_builder->CreateAdd(val, one, "increment");
   } else if (_op == "--") {
-
+    if (!val->getType()->isIntegerTy()) {
+        LogErrorV("Cannot decrement non-integer type");
+        return nullptr;
+    }
+    Value *one = llvm::ConstantInt::get(val->getType(), 1);
+    return llvm_builder->CreateSub(val, one, "decrement");
   } else {
     LogErrorV("Invalid unary operator");
     return nullptr;
