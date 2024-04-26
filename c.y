@@ -46,6 +46,7 @@ RootAST* AST_root;
   int int_token;
   double double_token;
   std::string* str_token;
+  char char_ty;
 }
 
 %token	<str_token> IDENTIFIER I_CONSTANT F_CONSTANT STRING_LITERAL FUNC_NAME SIZEOF
@@ -75,7 +76,7 @@ RootAST* AST_root;
 %type <expression> logical_and_expression logical_or_expression conditional_expression assignment_expression expression 
 %type <expression> constant
 
-%type <string> unary_operator
+%type <char_ty> unary_operator
 
 %type <arg_list> argument_expression_list
 
@@ -162,19 +163,19 @@ unary_expression
   : postfix_expression
   | INC_OP unary_expression { $$ = new UnaryExprAST("++", $2); }
   | DEC_OP unary_expression { $$ = new UnaryExprAST("--", $2); }
-  | unary_operator cast_expression { $$ = new UnaryExprAST($1, $2); }
+  | unary_operator cast_expression { $$ = new UnaryExprAST(std::string(1, $1), $2); }
   | SIZEOF unary_expression
   | SIZEOF '(' type_name ')'
   | ALIGNOF '(' type_name ')'
   ;
 
 unary_operator
-  : '&' { $$ = "&"; }
-  | '*' { $$ = "*"; }
-  | '+' { $$ = "+"; }
-  | '-' { $$ = "-"; }
-  | '~' { $$ = "~"; }
-  | '!' { $$ = "!"; }
+  : '&' 
+  | '*' 
+  | '+' 
+  | '-' 
+  | '~' 
+  | '!' 
   ;
 
 cast_expression

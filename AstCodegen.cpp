@@ -113,7 +113,7 @@ Value* UnaryExprAST::codegen() {
       LogErrorV("Cannot dereference non-pointer type");
       return nullptr;
     }
-    return llvm_builder->CreateLoad(val);
+    /* return llvm_builder->CreateLoad(val); */
   } else if (_op == "+") {
     return val;
   } else if (_op == "-") {
@@ -250,22 +250,22 @@ Value* BinaryExprAST::codegen() {
   return nullptr;
 }
 
-Value* ExprStmtAST::codegen()
+void ExprStmtAST::codegen()
 {
-  return _expression->codegen();
+  _expression->codegen();
 }
 
-Value* IfElseStmtAST::codegen()
+void IfElseStmtAST::codegen()
 {
   Value* CondV = _expression->codegen();
   if (!CondV) {
     LogErrorV("Failed to generate code for if condition");
-    return nullptr;
+    return ;
   }
 
   if (!CondV->getType()->isIntegerTy(1)) {
       LogErrorV("If condition must be of type boolean");
-      return nullptr;
+      return ;
   }
 
   Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
@@ -276,28 +276,18 @@ Value* IfElseStmtAST::codegen()
   llvm_builder->CreateCondBr(CondV, ThenBB, ElseBB);
 
   llvm_builder->SetInsertPoint(ThenBB);
-  Value* ThenV = _then_statement->codegen();
-  if (!ThenV)
-  {
-      LogErrorV("Failed to generate code for then clause");
-      return nullptr;
-  }
+  _then_statement->codegen();
+
   llvm_builder->CreateBr(MergeBB);
 
   ThenBB = llvm_builder->GetInsertBlock();
 
   TheFunction->insert(TheFunction->end(), ElseBB);
   llvm_builder->SetInsertPoint(ElseBB);
-  Value* ElseV = nullptr;
+
   if (_else_statement)
-  {
-      ElseV = _else_statement->codegen();
-      if (!ElseV)
-      {
-          LogErrorV("Failed to generate code for else clause");
-          return nullptr;
-      }
-  }
+      _else_statement->codegen();
+
   llvm_builder->CreateBr(MergeBB);
 
   ElseBB = llvm_builder->GetInsertBlock();
@@ -311,45 +301,44 @@ Value* IfElseStmtAST::codegen()
   /*     PN->addIncoming(ElseV, ElseBB); */
   /* } */
 
-  return nullptr;
+  return ;
 }
 
-Value* ReturnStmtAST::codegen()
+void ReturnStmtAST::codegen()
 {
   if (_expr) {
       Value* RetVal = _expr->codegen();
       if (!RetVal) {
           LogErrorV("Failed to generate code for return expression");
-          return nullptr;
+          return;
       }
 
       Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
       if (!TheFunction->getReturnType()->isVoidTy() && RetVal->getType() != TheFunction->getReturnType()) {
           LogErrorV("Return type mismatch");
-          return nullptr;
+          return;
       }
 
-      return llvm_builder->CreateRet(RetVal);
+      llvm_builder->CreateRet(RetVal);
   } else {
-      cout << "void return" << endl;
       Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
       if (!TheFunction->getReturnType()->isVoidTy()) {
           LogErrorV("Return type mismatch");
-          return nullptr;
+          return;
       }
 
 
-      return llvm_builder->CreateRetVoid();
+      llvm_builder->CreateRetVoid();
   }
 }
 
-Value* GotoStmtAST::codegen()
+void GotoStmtAST::codegen()
 {
   LogErrorV("goto Not implemented yet");
-  return nullptr;
+  return;
 }
 
-Value* WhileStmtAST::codegen()
+void WhileStmtAST::codegen()
 {
   Function *TheFunction = llvm_builder->GetInsertBlock()->getParent();
   BasicBlock *CondBlock = BasicBlock::Create(*llvm_context, "while.cond", TheFunction);
@@ -363,7 +352,7 @@ Value* WhileStmtAST::codegen()
   Value *ConditionValue = _expression->codegen();
   if (!ConditionValue) {
     LogErrorV("Failed to generate code for condition");
-    return nullptr;
+    return;
   }
 
   llvm_builder->CreateCondBr(ConditionValue, LoopBlock, AfterBlock);
@@ -377,9 +366,6 @@ Value* WhileStmtAST::codegen()
 
   TheFunction->insert(TheFunction->end(), AfterBlock);
   llvm_builder->SetInsertPoint(AfterBlock);
-
-
-  return nullptr;
 }
 
 Value* FunctionCallAST::codegen() {
@@ -410,7 +396,7 @@ Value* FunctionCallAST::codegen() {
       }
     }
   }
-  
+
   return llvm_builder->CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
@@ -422,23 +408,20 @@ void RootAST::codegen()
   }
 }
 
-Value* BlockItemListAST::codegen()
+void BlockItemListAST::codegen()
 {
   nested_symbols.push_back({});
 
-  Value* laststmt;
   for(auto bi: _items)
   {
-    laststmt = bi->codegen();
+    bi->codegen();
   }
 
   nested_symbols.pop_back();
-  return laststmt;
 }
 
 Type* DeclSpecifiersAST::getLLVMType()
 {
-  SpecifierAST* spec = *_decl_specs.begin();
   PrimitiveTypeSpecAST* prim_spec = nullptr;
   for (auto ptr : _decl_specs)
   {
@@ -452,8 +435,9 @@ Type* DeclSpecifiersAST::getLLVMType()
     LogErrorV("No primitive type specifier present");
     return nullptr;
   }
-  
+
   std::string type_name = prim_spec->getName();
+
   Type* ret_type = nullptr;
 
   if(type_name == "int")
@@ -553,14 +537,14 @@ void FunctionDefinitionAST::codegen()
 
 /*Value* InitializerAST::codegen() {
   if (_init_list) {
-    return _init_list->codegen();
+  return _init_list->codegen();
   } else if (_assignment_expression) {
-    return _assignment_expression->codegen();
+  return _assignment_expression->codegen();
   } else {
-    LogErrorV("No initializer");
-    return nullptr;
+  LogErrorV("No initializer");
+  return nullptr;
   }
-}*/
+  }*/
 
 void NormalDeclAST::codegen()
 {
@@ -593,16 +577,21 @@ void InitDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 
   if (_initializer)
   {
-    val = _initializer->codegen();
-    if (!val)
+    if (nested_symbols.size() == 0)
     {
-      LogErrorV("expression did not return a value");
-      return;
+      // global initializer;
     }
-    auto A = nested_symbols.back()[_direct_decl->getName()];
-    llvm_builder->CreateStore(val, (Value *) A);
+    else{
+      val = _initializer->codegen();
+      if (!val)
+      {
+        LogErrorV("expression did not return a value");
+        return;
+      }
+      auto A = nested_symbols.back()[_direct_decl->getName()];
+      llvm_builder->CreateStore(val, (Value *) A);
+    }
   }
-  //handle Initializer
 }
 
 void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
@@ -612,7 +601,7 @@ void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
   auto param_names = _paramlist->getParamNames();
 
   Type *ret_ty = static_cast<IdDeclaratorAST*>(_identifier)->getLLVMType(specs);
-  
+
   FunctionType* FT = FunctionType::get(ret_ty, param_types , false);
   Function* F = Function::Create(FT, Function::ExternalLinkage, _identifier->getName(), *llvm_module);
 
@@ -625,21 +614,43 @@ void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 
 Type *IdDeclaratorAST::getLLVMType(DeclSpecifiersAST *specs)
 {
-  Type *basetype = specs->getLLVMType();
-  return basetype;
+  Type *ty = specs->getLLVMType();
+  if (_pointer)
+  {
+    int numstars = _pointer->getSize();
+    for(int i = 0; i < numstars; i++)
+    {
+      ty = PointerType::get(ty, 0); 
+    }
+  }
+  return ty;
 }
 
 void IdDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
-    if (nested_symbols.back().find(_name) != nested_symbols.back().end())
+  if (nested_symbols.size() == 0){
+    if(global_symbols.find(_name) != global_symbols.end())
     {
-        LogErrorV("Variable already exists");
-        return;
+      LogErrorV("Variable already exists");
+      return;
     }
-    Type *ty = getLLVMType(specs);
+  }   
+  else if (nested_symbols.back().find(_name) != nested_symbols.back().end())
+  {
+    LogErrorV("Variable already exists");
+    return;
+  }
 
+  Type *ty = getLLVMType(specs);
+
+  if (nested_symbols.size() == 0)
+  {
+    cout << "global scope" << endl;
+  }
+  else
+  {
     Function *F = llvm_builder->GetInsertBlock()->getParent();
     AllocaInst *A = CreateEntryBlockAlloca(F, _name, ty);  
-
     nested_symbols.back()[_name] = A;
+  }
 }

@@ -27,7 +27,13 @@ class NodeAST {
     }
 };
 
-class ExternalDeclsAST : public NodeAST {
+class BlockItemAST : public NodeAST {
+
+  public:
+    virtual void codegen() = 0;
+};
+
+class ExternalDeclsAST : public BlockItemAST {
   public:
     virtual void codegen() = 0;
 };
@@ -57,11 +63,6 @@ class ExprAST : public NodeAST {
   virtual llvm::Value* codegen() = 0;
 };
 
-class BlockItemAST : public NodeAST {
-
-  public:
-    virtual llvm::Value* codegen() = 0;
-};
 
 // Base class for all statements
 class StmtAST : public BlockItemAST {
@@ -175,7 +176,7 @@ class ExprStmtAST : public StmtAST {
     if (_expression != nullptr) _expression->print(indent);
   }
 
-  llvm::Value* codegen() override;
+  void codegen() override;
 };
 
 class IfElseStmtAST : public StmtAST {
@@ -201,7 +202,7 @@ class IfElseStmtAST : public StmtAST {
     }
   }
 
-  llvm::Value* codegen() override;
+  void codegen() override;
 };
 
 class WhileStmtAST : public StmtAST {
@@ -218,7 +219,7 @@ class WhileStmtAST : public StmtAST {
     _statement->print(indent);
   } 
 
-  llvm::Value* codegen() override;
+  void codegen() override;
 };
 
 class GotoStmtAST : public StmtAST {
@@ -233,7 +234,7 @@ class GotoStmtAST : public StmtAST {
     _identifier->print(indent+1);
   }
 
-  llvm::Value* codegen() override;
+  void codegen() override;
 };
 
 class ReturnStmtAST : public StmtAST {
@@ -250,7 +251,7 @@ class ReturnStmtAST : public StmtAST {
       _expr->print(indent);
   }
 
-  llvm::Value* codegen() override;
+  void codegen() override;
 };
 
 class ArgListAST : public ExprAST {
@@ -321,7 +322,7 @@ class BlockItemListAST : public StmtAST {
     return present;
   }
 
-  llvm::Value* codegen();
+  void codegen();
 };
 
 class SpecifierAST : public NodeAST {
@@ -394,6 +395,8 @@ class PointerAST : public NodeAST {
         ptr->print(indent);
     }
   }
+
+  int getSize() { return _pointer_list.size(); }
 };
 
 
