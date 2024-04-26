@@ -152,6 +152,7 @@ class FunctionTypeInfo {
   public:
   FunctionTypeInfo(TypeInfo *rettype, std::vector<TypeInfo *> paramtypes) : _retType(rettype), _paramTypes(paramtypes) {  }
   TypeInfo *getReturnTypeInfo() { return _retType; };
+  std::vector<TypeInfo*>& getParamTypeInfos();
   std::vector<llvm::Type*> getLLVMParamTypes();
 };
 
@@ -162,6 +163,7 @@ class VarData
   llvm::AllocaInst *allocainst;
 
   VarData() : type(nullptr), allocainst(nullptr) {  }
+  VarData(TypeInfo *typepar, llvm::AllocaInst *allocainstpar) : type(type), allocainst(allocainstpar) {  }
 };
 
 class ExprRet {
@@ -461,7 +463,7 @@ class DirectDeclaratorAST : public NodeAST {
   public:
     DirectDeclaratorAST() : _pointer(nullptr) {  }
     void updatePointer(PointerAST* ptr) { _pointer = ptr; }
-    virtual void codegen(llvm::Type* specifier_type) = 0;
+    virtual void codegen(DeclSpecifiersAST *specs ) = 0;
     virtual std::string getName() = 0;
 };
 
@@ -519,6 +521,7 @@ class ParamListAST : public NodeAST {
     }
   }
 
+  std::vector<TypeInfo *> getParamTypeInfos();
   std::vector<llvm::Type*> getParamTypes();
   std::vector<std::string> getParamNames();
 };
@@ -565,7 +568,7 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
 
   virtual std::string getName() override { return _name; }
   llvm::AllocaInst* getAlloca();
-  virtual void codegen(llvm::Type* specifier_type) override;
+  virtual void codegen(DeclSpecifiersAST *specs) override;
 };
 
 class FunctionDefinitionAST : public ExternalDeclsAST {

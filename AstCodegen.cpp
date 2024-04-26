@@ -499,7 +499,8 @@ void FunctionDefinitionAST::codegen()
   if(!F)
     _func_declarator->codegen(_decl_specs);
 
-  F = llvm_module->getFunction(_func_declarator->getName());
+  std::string funcname = _func_declarator->getName();
+  F = llvm_module->getFunction(funcname);
 
   if(!F)
     return;
@@ -509,21 +510,25 @@ void FunctionDefinitionAST::codegen()
     return;
   }
 
+  FunctionTypeInfo *fty = function_types[funcname];
+  auto param_typeinfos = fty->getParamTypeInfos();
+
   BasicBlock *BB = BasicBlock::Create(*llvm_context, "entry", F);
   llvm_builder->SetInsertPoint(BB);
 
   nested_symbols.clear();
   nested_symbols.push_back({});
+  int id = 0;
   for (auto &arg: F->args())
   {
     AllocaInst *Alloca = CreateEntryBlockAlloca(F, arg.getName(), arg.getType());
     llvm_builder->CreateStore(&arg, Alloca);
-    nested_symbols[0][std::string(arg.getName())] = Alloca;
+    nested_symbols[0][std::string(arg.getName())] = VarData(param_typeinfos[id++], Alloca);
   }
 
   // body codgen
   bool no_ret = false;
-  Type *ret_type = _decl_specs->getLLVMType();
+  Type *ret_type = fty->getReturnTypeInfo()->getLLVMType();
   Value *ret_alloca = nullptr;
   no_ret = !isReturnPresent();
 
@@ -538,7 +543,7 @@ void FunctionDefinitionAST::codegen()
   {
     if(ret_alloca)
     {
-      Value * ret_value = llvm_builder->CreateLoad(ret_type, ret_alloca, "retval");
+      Value *ret_value = llvm_builder->CreateLoad(ret_type, ret_alloca, "retval");
       llvm_builder->CreateRet(ret_value);
     }
     else
@@ -574,29 +579,27 @@ Value *InitializerListAST::codegen()
   return nullptr;
 }
 
-void InitDeclaratorAST::codegen(Type* specifier_type)
+void InitDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
-  Function *F = llvm_builder->GetInsertBlock()->getParent();
-  AllocaInst *A = CreateEntryBlockAlloca(F, _direct_decl->getName(), specifier_type);  
+  _direct_decl->codegen();
+  if (!_initializer)
+    return;
+
   Value *val = nullptr; 
-
-
-  if (_initializer)
+  val = _initializer->codegen();
+  if (!val)
   {
-    val = _initializer->codegen();
-    if (!val)
-    {
-      LogErrorV("expression did not return a value");
-      return;
-    }
-    llvm_builder->CreateStore(val, (Value *) A);
+    LogErrorV("expression did not return a value");
+    return;
   }
 
-  nested_symbols.back()[_direct_decl->getName()] = A;
-  //handle Initializer
+  std::string varname = _direct_decl->getName();
+  VarData var = nested_symbols.back()[varname];
+
+  llvm_builder->CreateStore(val, (Value *) var.allocainst);
 }
 
-void FunctionDeclaratorAST::codegen(DeclSpecifierAST *specs)
+void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
   // incorporate ellipsis
   std::string funcname = _identifier->getName();
@@ -619,14 +622,17 @@ void FunctionDeclaratorAST::codegen(DeclSpecifierAST *specs)
   }
 }
 
-void IdDeclaratorAST::codegen(Type* specifier_type)
+void IdDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
   if (nested_symbols.back().find(_name) != nested_symbols.back().end())
   {
     LogErrorV("Variable already exists");
     return;
   }
-  AllocaInst* Alloca = llvm_builder->CreateAlloca(specifier_type, nullptr, _name);
-  nested_symbols.back()[_name] = Alloca;
+  TypeInfo *ty = new TypeInfo(specs, this);
+  Function *F = llvm_builder->GetInsertBlock()->getParent();
+  AllocaInst *A = CreateEntryBlockAlloca(F, _direct_decl->getName(), specifier_type);  
+
+  nested_symbols.back()[_name] = {ty, Alloca};
   //cout << "Declared variable: " << _name << endl;
 }
