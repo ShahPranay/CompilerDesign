@@ -396,7 +396,6 @@ class DeclSpecifiersAST : public NodeAST {
       ptr->print(indent);
     }
   }
-
   llvm::Type* getLLVMType();
 
 };
@@ -408,8 +407,31 @@ class DirectDeclaratorAST : public NodeAST {
   public:
     DirectDeclaratorAST() : _pointer(nullptr) {  }
     void updatePointer(PointerAST* ptr) { _pointer = ptr; }
-    virtual void codegen(llvm::Type* specifier_type) = 0;
+    virtual void codegen(DeclSpecifiersAST *specs) = 0;
     virtual std::string getName() = 0;
+};
+
+class IdDeclaratorAST : public DirectDeclaratorAST {
+  std::string _name;
+
+  public:
+  IdDeclaratorAST(const std::string& name) : _name(name) { }
+
+  virtual void print(int indent) {
+    printIndent(indent);
+    cout << "ID Declarator " << endl;
+    indent++;
+
+    if (_pointer)
+      _pointer->print(indent);
+    printIndent(indent);
+    cout << _name << endl;
+  }
+
+  std::string getName() override { return _name; }
+  void codegen(DeclSpecifiersAST *specs) override;
+  llvm::AllocaInst* getAlloca();
+  llvm::Type *getLLVMType(DeclSpecifiersAST *specs);
 };
 
 class ParamDeclAST : public NodeAST {
@@ -431,7 +453,7 @@ class ParamDeclAST : public NodeAST {
     if (_decl != nullptr) _decl->print(indent);
   }
 
-  llvm::Type* getLLVMType() { return _specs->getLLVMType(); }
+  llvm::Type* getLLVMType() { return static_cast<IdDeclaratorAST *>(_decl)->getLLVMType(_specs); }
   std::string getName() { return _decl->getName(); }
 };
 
@@ -490,30 +512,9 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
 
   virtual std::string getName() override { return _identifier->getName(); }
 
-  void codegen(llvm::Type* specifier_type) override;
+  void codegen(DeclSpecifiersAST *specs) override;
 };
 
-class IdDeclaratorAST : public DirectDeclaratorAST {
-  std::string _name;
-
-  public:
-  IdDeclaratorAST(const std::string& name) : _name(name) { }
-
-  virtual void print(int indent) {
-    printIndent(indent);
-    cout << "ID Declarator " << endl;
-    indent++;
-
-    if (_pointer)
-      _pointer->print(indent);
-    printIndent(indent);
-    cout << _name << endl;
-  }
-
-  virtual std::string getName() override { return _name; }
-  llvm::AllocaInst* getAlloca();
-  virtual void codegen(llvm::Type* specifier_type) override;
-};
 
 class FunctionDefinitionAST : public ExternalDeclsAST {
   DeclSpecifiersAST* _decl_specs;
@@ -645,7 +646,7 @@ class InitDeclaratorAST : public NodeAST {
     } 
   }
 
-  void codegen(llvm::Type* codegen);
+  void codegen(DeclSpecifiersAST *specs);
 };
 
 class InitDeclaratorListAST : public NodeAST {
@@ -664,7 +665,7 @@ class InitDeclaratorListAST : public NodeAST {
     }
   }
 
-  void codegen(llvm::Type* codegen);
+  void codegen(DeclSpecifiersAST *specs);
 
 };
 

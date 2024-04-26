@@ -396,17 +396,18 @@ Value* BlockItemListAST::codegen()
 
 Type* DeclSpecifiersAST::getLLVMType()
 {
-  if(_decl_specs.size() != 1)
+  SpecifierAST* spec = *_decl_specs.begin();
+  PrimitiveTypeSpecAST* prim_spec = nullptr;
+  for (auto ptr : _decl_specs)
   {
-    LogErrorV("Number of specifiers do not match 1");
-    return nullptr;
+    prim_spec = dynamic_cast<PrimitiveTypeSpecAST*>(ptr);
+    if (prim_spec)
+      break;
   }
 
-  SpecifierAST* spec = *_decl_specs.begin();
-  PrimitiveTypeSpecAST* prim_spec = dynamic_cast<PrimitiveTypeSpecAST*>(spec);
   if(!prim_spec)
   {
-    LogErrorV("Not a primitive Type Specifier");
+    LogErrorV("No primitive type specifier present");
     return nullptr;
   }
   
@@ -458,7 +459,7 @@ void FunctionDefinitionAST::codegen()
   Function *F = llvm_module->getFunction(_func_declarator->getName());
 
   if(!F)
-    _func_declarator->codegen(_decl_specs->getLLVMType());
+    _func_declarator->codegen(_decl_specs);
 
   F = llvm_module->getFunction(_func_declarator->getName());
 
@@ -521,14 +522,14 @@ void FunctionDefinitionAST::codegen()
 
 void NormalDeclAST::codegen()
 {
-  _init_decl_list->codegen(_specs->getLLVMType());
+  _init_decl_list->codegen(_specs);
 }
 
-void InitDeclaratorListAST::codegen(Type* specifier_type)
+void InitDeclaratorListAST::codegen(DeclSpecifiersAST *specs)
 {
   for (auto idecl: _init_declarators)
   {
-    idecl->codegen(specifier_type);
+    idecl->codegen(specs);
   }
 }
 
@@ -543,12 +544,10 @@ Value *InitializerListAST::codegen()
   return nullptr;
 }
 
-void InitDeclaratorAST::codegen(Type* specifier_type)
+void InitDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
-  Function *F = llvm_builder->GetInsertBlock()->getParent();
-  AllocaInst *A = CreateEntryBlockAlloca(F, _direct_decl->getName(), specifier_type);  
+  _direct_decl->codegen(specs);
   Value *val = nullptr; 
-
 
   if (_initializer)
   {
@@ -558,20 +557,21 @@ void InitDeclaratorAST::codegen(Type* specifier_type)
       LogErrorV("expression did not return a value");
       return;
     }
+    auto A = nested_symbols.back()[_direct_decl->getName()];
     llvm_builder->CreateStore(val, (Value *) A);
   }
-
-  nested_symbols.back()[_direct_decl->getName()] = A;
   //handle Initializer
 }
 
-void FunctionDeclaratorAST::codegen(Type* specifier_type)
+void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
   // incorporate ellipsis
   auto param_types = _paramlist->getParamTypes();
   auto param_names = _paramlist->getParamNames();
+
+  Type *ret_ty = static_cast<IdDeclaratorAST*>(_identifier)->getLLVMType(specs);
   
-  FunctionType* FT = FunctionType::get(specifier_type, param_types , false);
+  FunctionType* FT = FunctionType::get(ret_ty, param_types , false);
   Function* F = Function::Create(FT, Function::ExternalLinkage, _identifier->getName(), *llvm_module);
 
   unsigned int i = 0;
@@ -581,14 +581,23 @@ void FunctionDeclaratorAST::codegen(Type* specifier_type)
   }
 }
 
-void IdDeclaratorAST::codegen(Type* specifier_type)
+Type *IdDeclaratorAST::getLLVMType(DeclSpecifiersAST *specs)
+{
+  Type *basetype = specs->getLLVMType();
+  return basetype;
+}
+
+void IdDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
     if (nested_symbols.back().find(_name) != nested_symbols.back().end())
     {
         LogErrorV("Variable already exists");
         return;
     }
-    AllocaInst* Alloca = llvm_builder->CreateAlloca(specifier_type, nullptr, _name);
-    nested_symbols.back()[_name] = Alloca;
-    //cout << "Declared variable: " << _name << endl;
+    Type *ty = getLLVMType(specs);
+
+    Function *F = llvm_builder->GetInsertBlock()->getParent();
+    AllocaInst *A = CreateEntryBlockAlloca(F, _name, ty);  
+
+    nested_symbols.back()[_name] = A;
 }
