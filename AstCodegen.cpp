@@ -466,6 +466,36 @@ Type* DeclSpecifiersAST::getLLVMType()
   return ret_type;
 }
 
+Type* TypeInfo::getLLVMType() {
+  Type* llvm_type = nullptr;
+
+  if (_basetype == BaseType::CONSTANT ) {
+    llvm_type = Type::getInt32Ty(*llvm_context);
+  } else if (_basetype == BaseType::VOID ) {
+    llvm_type = Type::getVoidTy(*llvm_context);
+  } else if (_basetype == BaseType::CHAR ) {
+    llvm_type = Type::getInt8Ty(*llvm_context);
+  } else if (_basetype == BaseType::SHORT) {
+    llvm_type = Type::getInt16Ty(*llvm_context);
+  } else if (_basetype == BaseType::INT ) {
+    llvm_type = Type::getInt32Ty(*llvm_context);
+  } else if (_basetype == BaseType::LONG ) {
+    llvm_type = Type::getInt64Ty(*llvm_context);
+  } else if (_basetype == BaseType::FLOAT) {
+    llvm_type = Type::getFloatTy(*llvm_context);
+  } else if (_basetype == BaseType::DOUBLE ) {
+    llvm_type = Type::getDoubleTy(*llvm_context);
+  } else if (_basetype == BaseType::BOOL ) {
+    llvm_type = Type::getInt1Ty(*llvm_context);
+  }
+
+  if (!_ptrinfo.empty()) {
+    llvm_type = PointerType::get(llvm_type, 0);
+  }
+
+  return llvm_type;
+}
+
 
 std::vector<Type*> ParamListAST::getParamTypes()
 {
