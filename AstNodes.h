@@ -155,6 +155,8 @@ class BinaryExprAST : public ExprAST {
 
   virtual llvm::Value* codegen() override;
 
+  virtual ExprAST* constantFolding(ExprAST* expr);
+
   virtual void print(int indent) { 
     left->print(indent+1);
 
