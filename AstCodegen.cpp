@@ -119,13 +119,15 @@ ExprRet* IdentifierAST::codegen()
   return new ExprRet(V.type, val);
 }
 
-/*ExprRet* UnaryExprAST::codegen() {
-  llvm::Value* val = _expr->codegen();
+ExprRet* UnaryExprAST::codegen() {
+  ExprRet* ret = _expr->codegen();
   
-  if (!val) 
-  {
+  if (!ret) {
     return nullptr;
   }
+
+  TypeInfo* type = ret->getType();
+  Value* val = ret->getValue();
 
   if (_op == "&") 
   {
@@ -134,29 +136,39 @@ ExprRet* IdentifierAST::codegen()
   } 
   else if (_op == "*") 
   {
-    if (!val->getType()->isPointerTy()) {
-      LogErrorV("Cannot dereference non-pointer type");
-      return nullptr;
-    }
-    Type *deref_ty = val->getType()->getNonOpaquePointerElementType();
-    return llvm_builder->CreateLoad(deref_ty, val, "deref_val");
+    //Todo
+    return nullptr;
   } 
   else if (_op == "+") 
   {
-    return val;
+    return ret;
   }
   else if (_op == "-")
   {
-    return llvm_builder->CreateNeg(val);
+    if (val->getType()->isIntegerTy()) {
+        return new ExprRet(type, llvm_builder->CreateNeg(val));
+    } else if (val->getType()->isDoubleTy()) {
+        return new ExprRet(type, llvm_builder->CreateFNeg(val));
+    } else {
+        LogErrorV("Unary minus operator is not supported for this type");
+        return nullptr;
+    }
   }
   else if (_op == "~") 
   {
-    return llvm_builder->CreateNot(val);
+    if (!val->getType()->isIntegerTy()) {
+        LogErrorV("Unary not operator is not supported for this type");
+        return nullptr;
+    }
+    return new ExprRet(type, llvm_builder->CreateNot(val));
   }
   else if (_op == "!") 
   {
-    llvm::Type *boolTy = llvm::Type::getInt1Ty(*llvm_context);
-    return llvm_builder->CreateICmpEQ(val, llvm::Constant::getNullValue(boolTy));
+    if (!val->getType()->isIntegerTy(1)) {
+        LogErrorV("logical not operator is not supported for this type");
+        return nullptr;
+    }
+    return new ExprRet(type, llvm_builder->CreateNot(val));
   }
   else if (_op == "++") 
   {
@@ -165,7 +177,8 @@ ExprRet* IdentifierAST::codegen()
         return nullptr;
     }
     Value *one = llvm::ConstantInt::get(val->getType(), 1);
-    return llvm_builder->CreateAdd(val, one, "increment");
+    Value *result = llvm_builder->CreateAdd(val, one, "increment");
+    return new ExprRet(type, result); 
   }
   else if (_op == "--") 
   {
@@ -174,7 +187,8 @@ ExprRet* IdentifierAST::codegen()
         return nullptr;
     }
     Value *one = llvm::ConstantInt::get(val->getType(), 1);
-    return llvm_builder->CreateSub(val, one, "decrement");
+    Value *result = llvm_builder->CreateSub(val, one, "decrement");
+    return new ExprRet(type, result);
   }
   else 
   {
@@ -182,7 +196,7 @@ ExprRet* IdentifierAST::codegen()
     LogErrorV("Invalid unary operator");
     return nullptr;
   }
-}*/
+}
 
 ExprRet* BinaryExprAST::codegen() 
 {
