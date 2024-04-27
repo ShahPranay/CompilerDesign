@@ -238,6 +238,22 @@ class StmtAST : public BlockItemAST {
   virtual StmtAST* constantFolding();
 };
 
+class BooleanExprAST : public ExprAST {
+  bool _val;
+
+  public:
+  BooleanExprAST(bool Val) : _val(Val) {  }
+
+  virtual ExprRet* codegen() override;
+
+  bool getVal() { return _val; }
+
+  virtual void print(int indent) { 
+    printIndent(indent);
+    cout << "Val : " << (_val ? "true" : "false") << endl; 
+  }
+};
+
 class IntegerExprAST : public ExprAST {
   int _val;
 
@@ -260,7 +276,7 @@ class DoubleExprAST : public ExprAST {
   public:
   DoubleExprAST(double Val) : _val(Val) {}
 
-  int getVal() { return _val; }
+  double getVal() { return _val; }
 
   virtual ExprRet* codegen() override;
 

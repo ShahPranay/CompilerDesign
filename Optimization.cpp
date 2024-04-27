@@ -24,12 +24,18 @@ ExprAST* UnaryExprAST::constantFolding() {
     IntegerExprAST* intexpr = dynamic_cast<IntegerExprAST *>(_expr);
 
     if (intexpr) {
-        if (_op == "++") {
+        if (_op == "++")
             return new IntegerExprAST(intexpr->getVal() + 1);
-        }
-        if (_op == "--") {
+        if (_op == "--")
             return new IntegerExprAST(intexpr->getVal() - 1);
-        }
+        if (_op == "~")
+            return new IntegerExprAST(~intexpr->getVal());
+        if (_op == "!")
+            return new IntegerExprAST(!intexpr->getVal());
+        if (_op == "+")
+            return new IntegerExprAST(+intexpr->getVal());
+        if (_op == "-")
+            return new IntegerExprAST(-intexpr->getVal());
     }
 
     return this;
@@ -53,37 +59,37 @@ ExprAST* BinaryExprAST::constantFolding() {
 
     if (Lint && Rint) {
         if (op == "+")
-        return new IntegerExprAST(Lint->getVal() + Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() + Rint->getVal());
         if (op == "-")
-        return new IntegerExprAST(Lint->getVal() - Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() - Rint->getVal());
         if (op == "*")
-        return new IntegerExprAST(Lint->getVal() * Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() * Rint->getVal());
         if (op == "/")
-        return new IntegerExprAST(Lint->getVal() / Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() / Rint->getVal());
         if (op == "%")
-        return new IntegerExprAST(Lint->getVal() % Rint->getVal());
-        /*if (op == "<")
-        return llvm_builder->CreateICmpSLT(L, R, "cmptmp");
+            return new IntegerExprAST(Lint->getVal() % Rint->getVal());
+        if (op == "<")
+            return new BooleanExprAST(Lint->getVal() < Rint->getVal());
         if (op == ">")
-        return llvm_builder->CreateICmpSGT(L, R, "cmptmp");
+            return new BooleanExprAST(Lint->getVal() > Rint->getVal());
         if (op == "<=")
-        return llvm_builder->CreateICmpSLE(L, R, "cmptmp");
+            return new BooleanExprAST(Lint->getVal() <= Rint->getVal());
         if (op == ">=")
-        return llvm_builder->CreateICmpSGE(L, R, "cmptmp");
+            return new BooleanExprAST(Lint->getVal() >= Rint->getVal());
         if (op == "==")
-        return llvm_builder->CreateICmpEQ(L, R, "cmptmp");
+            return new BooleanExprAST(Lint->getVal() == Rint->getVal());
         if (op == "!=")
-        return llvm_builder->CreateICmpNE(L, R, "cmptmp");*/
+            return new BooleanExprAST(Lint->getVal() != Rint->getVal());
         if (op == "&")
-        return new IntegerExprAST(Lint->getVal() & Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() & Rint->getVal());
         if (op == "|")
-        return new IntegerExprAST(Lint->getVal() | Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() | Rint->getVal());
         if (op == "^")
-        return new IntegerExprAST(Lint->getVal() ^ Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() ^ Rint->getVal());
         if (op == "<<")
-        return new IntegerExprAST(Lint->getVal() << Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() << Rint->getVal());
         if (op == ">>")
-        return new IntegerExprAST(Lint->getVal() >> Rint->getVal());
+            return new IntegerExprAST(Lint->getVal() >> Rint->getVal());
     }
 
     DoubleExprAST *Ldouble = dynamic_cast<DoubleExprAST *>(left), 
@@ -98,30 +104,32 @@ ExprAST* BinaryExprAST::constantFolding() {
             return new DoubleExprAST(Ldouble->getVal() * Rdouble->getVal());
         if (op == "/")
             return new DoubleExprAST(Ldouble->getVal() / Rdouble->getVal());
-        /*if (op == "<") {
-            L = llvm_builder->CreateFCmpULT(L, R, "cmptmp");
-            return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-        }
-        if (op == ">") {
-            L = llvm_builder->CreateFCmpUGT(L, R, "cmptmp");
-            return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-        }
-        if (op == "<=") {
-            L = llvm_builder->CreateFCmpULE(L, R, "cmptmp");
-            return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-        }
-        if (op == ">=") {
-            L = llvm_builder->CreateFCmpUGE(L, R, "cmptmp");
-            return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-        }
-        if (op == "==") {
-            L = llvm_builder->CreateFCmpUEQ(L, R, "cmptmp");
-            return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-        }
-        if (op == "!=") {
-            L = llvm_builder->CreateFCmpUNE(L, R, "cmptmp");
-            return llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
-        }*/
+        if (op == "<")
+            return new BooleanExprAST(Ldouble->getVal() < Rdouble->getVal());
+        if (op == ">")
+            return new BooleanExprAST(Ldouble->getVal() > Rdouble->getVal());
+        if (op == "<=")
+            return new BooleanExprAST(Ldouble->getVal() <= Rdouble->getVal());
+        if (op == ">=")
+            return new BooleanExprAST(Ldouble->getVal() >= Rdouble->getVal());
+        if (op == "==")
+            return new BooleanExprAST(Ldouble->getVal() == Rdouble->getVal());
+        if (op == "!=")
+            return new BooleanExprAST(Ldouble->getVal() != Rdouble->getVal());
+    }
+
+    BooleanExprAST *LBool = dynamic_cast<BooleanExprAST *>(left),
+                   *RBool = dynamic_cast<BooleanExprAST *>(right);
+
+    if (LBool && RBool) {
+        if (op == "||")
+            return new BooleanExprAST(LBool->getVal() || RBool->getVal());
+        if (op == "&&")
+            return new BooleanExprAST(LBool->getVal() && RBool->getVal());
+        if (op == "==")
+            return new BooleanExprAST(LBool->getVal() == RBool->getVal());
+        if (op == "!=")
+            return new BooleanExprAST(LBool->getVal() != RBool->getVal());
     }
 
     return this;

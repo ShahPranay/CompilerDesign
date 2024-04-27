@@ -51,6 +51,11 @@ static AllocaInst *CreateEntryBlockAlloca(Function *F, StringRef var_name, Type 
   return TmpB.CreateAlloca(type, nullptr, var_name);
 }
 
+ExprRet* BooleanExprAST::codegen() {
+  TypeInfo *ty = new TypeInfo();
+  return new ExprRet(ty, ConstantInt::get(*llvm_context, APInt(1, _val ? 1 : 0)));
+}
+
 ExprRet* IntegerExprAST::codegen() {
   TypeInfo *ty = new TypeInfo();
   return new ExprRet(ty, ConstantInt::get(*llvm_context, APInt(32, _val, true)));
