@@ -114,6 +114,71 @@ ExprRet* IdentifierAST::codegen()
   return new ExprRet(V.type, val);
 }
 
+/*ExprRet* UnaryExprAST::codegen() {
+  llvm::Value* val = _expr->codegen();
+  
+  if (!val) 
+  {
+    return nullptr;
+  }
+
+  if (_op == "&") 
+  {
+    return nullptr;
+    //Todo
+  } 
+  else if (_op == "*") 
+  {
+    if (!val->getType()->isPointerTy()) {
+      LogErrorV("Cannot dereference non-pointer type");
+      return nullptr;
+    }
+    Type *deref_ty = val->getType()->getNonOpaquePointerElementType();
+    return llvm_builder->CreateLoad(deref_ty, val, "deref_val");
+  } 
+  else if (_op == "+") 
+  {
+    return val;
+  }
+  else if (_op == "-")
+  {
+    return llvm_builder->CreateNeg(val);
+  }
+  else if (_op == "~") 
+  {
+    return llvm_builder->CreateNot(val);
+  }
+  else if (_op == "!") 
+  {
+    llvm::Type *boolTy = llvm::Type::getInt1Ty(*llvm_context);
+    return llvm_builder->CreateICmpEQ(val, llvm::Constant::getNullValue(boolTy));
+  }
+  else if (_op == "++") 
+  {
+    if (!val->getType()->isIntegerTy()) {
+        LogErrorV("Cannot decrement non-integer type");
+        return nullptr;
+    }
+    Value *one = llvm::ConstantInt::get(val->getType(), 1);
+    return llvm_builder->CreateAdd(val, one, "increment");
+  }
+  else if (_op == "--") 
+  {
+    if (!val->getType()->isIntegerTy()) {
+        LogErrorV("Cannot decrement non-integer type");
+        return nullptr;
+    }
+    Value *one = llvm::ConstantInt::get(val->getType(), 1);
+    return llvm_builder->CreateSub(val, one, "decrement");
+  }
+  else 
+  {
+    cout << _op << endl;
+    LogErrorV("Invalid unary operator");
+    return nullptr;
+  }
+}*/
+
 ExprRet* BinaryExprAST::codegen() 
 {
   ExprRet *lret, *rret;

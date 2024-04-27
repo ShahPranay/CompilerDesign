@@ -68,6 +68,7 @@ RootAST* AST_root;
 
 %type <statement> statement expression_statement jump_statement block_item selection_statement iteration_statement
 %type <block_list> block_item_list compound_statement
+%type <str_token> unary_operator
 
 %type <expression> cast_expression unary_expression postfix_expression primary_expression
 %type <expression> multiplicative_expression additive_expression shift_expression relational_expression 
@@ -158,21 +159,21 @@ argument_expression_list
 
 unary_expression
   : postfix_expression
-  | INC_OP unary_expression
-  | DEC_OP unary_expression
-  | unary_operator cast_expression
+  | INC_OP unary_expression { $$ = new UnaryExprAST("++", $2); }
+  | DEC_OP unary_expression { $$ = new UnaryExprAST("--", $2); }
+  | unary_operator cast_expression { $$ = new UnaryExprAST(*$1, $2); delete $1;}
   | SIZEOF unary_expression
   | SIZEOF '(' type_name ')'
   | ALIGNOF '(' type_name ')'
   ;
 
 unary_operator
-  : '&'
-  | '*'
-  | '+'
-  | '-'
-  | '~'
-  | '!'
+  : '&' { $$ = new std::string("&"); }
+  | '*' { $$ = new std::string("*"); }
+  | '+' { $$ = new std::string("+"); }
+  | '-' { $$ = new std::string("-"); }
+  | '~' { $$ = new std::string("~"); }
+  | '!' { $$ = new std::string("!"); }
   ;
 
 cast_expression

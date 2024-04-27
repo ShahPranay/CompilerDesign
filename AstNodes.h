@@ -194,6 +194,7 @@ class ExprRet {
 
 class ExternalDeclsAST : public NodeAST {
   public:
+    virtual void constantFolding();
     virtual void codegen() = 0;
 };
 
@@ -201,6 +202,7 @@ class RootAST : public NodeAST {
   std::vector<ExternalDeclsAST*> _extern_units;    
 
   public:
+  void constantFolding();
   void codegen();
   void insertExternalUnit(ExternalDeclsAST* unit) {
     _extern_units.push_back(unit);
@@ -220,17 +222,20 @@ class RootAST : public NodeAST {
 class ExprAST : public NodeAST {
   public:
   virtual ExprRet* codegen() = 0;
+  virtual ExprAST* constantFolding();
 };
 
 class BlockItemAST : public NodeAST {
 
   public:
     virtual void codegen() = 0;
+    virtual BlockItemAST* constantFolding();
 };
 
 // Base class for all statements
 class StmtAST : public BlockItemAST {
-
+  public:
+  virtual StmtAST* constantFolding();
 };
 
 class IntegerExprAST : public ExprAST {
@@ -240,6 +245,8 @@ class IntegerExprAST : public ExprAST {
   IntegerExprAST(int Val) : _val(Val) {  }
 
   virtual ExprRet* codegen() override;
+
+  int getVal() { return _val; }
 
   virtual void print(int indent) { 
     printIndent(indent);
@@ -252,6 +259,8 @@ class DoubleExprAST : public ExprAST {
 
   public:
   DoubleExprAST(double Val) : _val(Val) {}
+
+  int getVal() { return _val; }
 
   virtual ExprRet* codegen() override;
 
@@ -290,6 +299,25 @@ class IdentifierAST : public ExprAST {
   }
 };
 
+class UnaryExprAST : public ExprAST {
+    std::string _op;
+    ExprAST* _expr;
+
+public:
+    UnaryExprAST(const std::string& op, ExprAST* expr)
+        : _op(op), _expr(expr) { }
+
+    virtual ExprRet* codegen() override;
+
+    virtual ExprAST* constantFolding();
+
+    virtual void print(int indent) {
+        printIndent(indent);
+        cout << "Unary Operator: " << _op << endl;
+        _expr->print(indent + 1);
+    }
+};
+
 // Binary expression AST node
 class BinaryExprAST : public ExprAST {
   std::string op;
@@ -300,6 +328,8 @@ class BinaryExprAST : public ExprAST {
     : op(op), left(LHS), right(RHS) {}
 
   virtual ExprRet* codegen() override;
+
+  virtual ExprAST* constantFolding();
 
   virtual void print(int indent) { 
     left->print(indent+1);
@@ -321,6 +351,8 @@ class ExprStmtAST : public StmtAST {
   virtual void print(int indent) {
     if (_expression != nullptr) _expression->print(indent);
   }
+
+  virtual StmtAST* constantFolding();
 
   void codegen() override;
 };
@@ -348,6 +380,8 @@ class IfElseStmtAST : public StmtAST {
     }
   }
 
+  virtual StmtAST* constantFolding();
+
   void codegen() override;
 };
 
@@ -364,6 +398,8 @@ class WhileStmtAST : public StmtAST {
     _expression->print(indent+1);
     _statement->print(indent);
   } 
+
+  virtual StmtAST* constantFolding();
 
   void codegen() override;
 };
@@ -398,6 +434,8 @@ class ReturnStmtAST : public StmtAST {
   }
 
   void codegen() override;
+
+  virtual StmtAST* constantFolding();
 };
 
 class ArgListAST : public NodeAST {
@@ -415,6 +453,7 @@ class ArgListAST : public NodeAST {
     }
   }
 
+  virtual void constantFolding();
   std::vector<ExprAST*> getArgs() { return _arg_list; }
   int getSize() { return _arg_list.size(); }
 }; 
@@ -434,6 +473,7 @@ class FunctionCallAST : public ExprAST {
     if (_argument_list != nullptr) _argument_list->print(indent+1);
   }
 
+  virtual ExprAST* constantFolding();
   virtual ExprRet* codegen() override;
   int getSize() { return _argument_list->getSize(); }
   std::vector<ExprAST*> getArgs() { return _argument_list->getArgs(); }
@@ -467,6 +507,7 @@ class BlockItemListAST : public StmtAST {
     return present;
   }
 
+  virtual StmtAST* constantFolding();
   void codegen();
 };
 
@@ -596,6 +637,7 @@ class FunctionDefinitionAST : public ExternalDeclsAST {
 
   bool isReturnPresent() { return _compound_stmts->isReturnPresent(); }
 
+  virtual void constantFolding();
   void codegen() override;
 
 };
@@ -665,6 +707,7 @@ class InitializerAST : public NodeAST {
   }
 
   virtual ExprRet* codegen();
+  void constantFolding();
 };
 
 class InitializerListAST : public InitializerAST {
@@ -683,6 +726,7 @@ class InitializerListAST : public InitializerAST {
   }
 
   ExprRet* codegen() override;
+  void constantFolding();
 };
 
 class InitDeclaratorAST : public NodeAST {
@@ -707,6 +751,7 @@ class InitDeclaratorAST : public NodeAST {
   }
 
   void codegen(DeclSpecifiersAST *codegen);
+  void constantFolding();
 };
 
 class InitDeclaratorListAST : public NodeAST {
@@ -726,6 +771,7 @@ class InitDeclaratorListAST : public NodeAST {
   }
 
   void codegen(DeclSpecifiersAST *specs);
+  void constantFolding();
 
 };
 
@@ -751,6 +797,7 @@ class NormalDeclAST : public DeclarationAST {
     if (_init_decl_list != nullptr) _init_decl_list->print(indent);
   }
   virtual void codegen() override;
+  virtual void constantFolding();
 };
 
 class StaticAssertDeclAST : public DeclarationAST {
