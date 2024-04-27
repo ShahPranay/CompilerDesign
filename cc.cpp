@@ -33,7 +33,6 @@ void dump_ast() {
 void codegen(char const *filename)
 {
   initialize_module();
-  AST_root->constantFolding();
   AST_root->codegen();
 
   std::string outfilename(filename);
@@ -67,6 +66,7 @@ main(int argc, char **argv)
 
   printf("retv = %d\n", ret);
 
+  AST_root->constantFolding();
   dump_ast();
   codegen(filename);
 

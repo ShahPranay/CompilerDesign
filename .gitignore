@@ -4,4 +4,5 @@ c.tab.cpp
 c.tab.hpp
 cc
 AstCodegen.o
+Optimization.o
 *.ll

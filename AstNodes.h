@@ -194,7 +194,7 @@ class ExprRet {
 
 class ExternalDeclsAST : public NodeAST {
   public:
-    virtual void constantFolding();
+    virtual void constantFolding() = 0;
     virtual void codegen() = 0;
 };
 
@@ -222,20 +222,20 @@ class RootAST : public NodeAST {
 class ExprAST : public NodeAST {
   public:
   virtual ExprRet* codegen() = 0;
-  virtual ExprAST* constantFolding();
+  virtual ExprAST* constantFolding() { return this; };
 };
 
 class BlockItemAST : public NodeAST {
 
   public:
     virtual void codegen() = 0;
-    virtual BlockItemAST* constantFolding();
+    virtual BlockItemAST* constantFolding() { return this; };
 };
 
 // Base class for all statements
 class StmtAST : public BlockItemAST {
   public:
-  virtual StmtAST* constantFolding();
+  virtual StmtAST* constantFolding() { return this; };
 };
 
 class BooleanExprAST : public ExprAST {
@@ -252,6 +252,7 @@ class BooleanExprAST : public ExprAST {
     printIndent(indent);
     cout << "Val : " << (_val ? "true" : "false") << endl; 
   }
+
 };
 
 class IntegerExprAST : public ExprAST {
@@ -304,9 +305,10 @@ class IdentifierAST : public ExprAST {
 
   public:
   IdentifierAST(const std::string& name) : _name( name ) {  }
-
   ExprRet* codegen() override;
   VarData getVarData();
+
+
   virtual std::string getName() { return _name; }
 
   virtual void print(int indent) { 
@@ -451,7 +453,7 @@ class ReturnStmtAST : public StmtAST {
 
   void codegen() override;
 
-  virtual StmtAST* constantFolding();
+  StmtAST* constantFolding() override;
 };
 
 class ArgListAST : public NodeAST {
