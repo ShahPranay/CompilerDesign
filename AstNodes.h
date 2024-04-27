@@ -13,6 +13,7 @@
 using std::cout;
 using std::endl;
 
+class TypeInfo;
 //Base class for all nodes
 class NodeAST {
   public:
@@ -77,6 +78,16 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
   std::string getName() { return _type_name; }
 };
 
+enum BaseType
+{
+  constant_ty, void_ty, char_ty, short_ty, int_ty, long_ty, float_ty, double_ty, signed_ty, unsigned_ty, bool_ty,
+};
+
+enum Qualifier
+{
+  no_qual, const_qual,
+};
+
 class PointerAST : public NodeAST {
   std::list<TypeQualListAST*> _pointer_list;
 
@@ -97,6 +108,8 @@ class PointerAST : public NodeAST {
         ptr->print(indent);
     }
   }
+
+  std::vector<Qualifier> getQualVec();
 };
 
 class DeclSpecifiersAST : public NodeAST {
@@ -116,33 +129,36 @@ class DeclSpecifiersAST : public NodeAST {
     }
   }
 
-  llvm::Type* getLLVMType();
+  BaseType getBaseType();
+};
 
+class DirectDeclaratorAST : public NodeAST {
+  protected:
+    PointerAST *_pointer;
+
+  public:
+    DirectDeclaratorAST() : _pointer(nullptr) {  }
+    void updatePointer(PointerAST* ptr) { _pointer = ptr; }
+    virtual void codegen(DeclSpecifiersAST *specs ) = 0;
+    virtual std::string getName() = 0;
+    PointerAST *getPointer() { return _pointer; }
 };
 
 // make PointerAST and DeclSpecifiersAST lightweight (for easy copying). 
-enum BaseType
-{
-  CONSTANT, VOID, CHAR, SHORT, INT, LONG, FLOAT, DOUBLE, SIGNED, UNSIGNED, BOOL,
-};
-
-enum Qualifier
-{
-  EMPTY, CONST,
-};
 
 class TypeInfo {
+  public:
   BaseType _basetype;
   Qualifier _basequalifier;
   std::vector<Qualifier> _ptrinfo;
 
-  public:
-  TypeInfo(DeclSpecifiersAST *declspecs, PointerAST *ptr);
-  TypeInfo(BaseType bt, Qualifier bql = Qualifier::EMPTY) : _basetype(bt), _basequalifier(bql) {  };
-  TypeInfo() : _basetype(BaseType::CONSTANT), _basequalifier(Qualifier::EMPTY) {  }
+  TypeInfo(DeclSpecifiersAST *declspecs, DirectDeclaratorAST *ddecl);
+  TypeInfo(BaseType bt, Qualifier bql = Qualifier::no_qual) : _basetype(bt), _basequalifier(bql) {  };
+  TypeInfo() : _basetype(BaseType::constant_ty), _basequalifier(Qualifier::no_qual) {  }
 
   bool iscompatible(TypeInfo *other);
   llvm::Type *getLLVMType();
+  void setQualVec(std::vector<Qualifier>&& qualvec) { _ptrinfo = qualvec; }
 };
 
 class FunctionTypeInfo {
@@ -152,7 +168,7 @@ class FunctionTypeInfo {
   public:
   FunctionTypeInfo(TypeInfo *rettype, std::vector<TypeInfo *> paramtypes) : _retType(rettype), _paramTypes(paramtypes) {  }
   TypeInfo *getReturnTypeInfo() { return _retType; };
-  std::vector<TypeInfo*>& getParamTypeInfos();
+  std::vector<TypeInfo*>& getParamTypeInfos() { return _paramTypes; };
   std::vector<llvm::Type*> getLLVMParamTypes();
 };
 
@@ -456,16 +472,6 @@ class BlockItemListAST : public StmtAST {
 
 
 
-class DirectDeclaratorAST : public NodeAST {
-  protected:
-    PointerAST *_pointer;
-
-  public:
-    DirectDeclaratorAST() : _pointer(nullptr) {  }
-    void updatePointer(PointerAST* ptr) { _pointer = ptr; }
-    virtual void codegen(DeclSpecifiersAST *specs ) = 0;
-    virtual std::string getName() = 0;
-};
 
 class ParamDeclAST : public NodeAST {
   DeclSpecifiersAST* _specs;
@@ -486,7 +492,7 @@ class ParamDeclAST : public NodeAST {
     if (_decl != nullptr) _decl->print(indent);
   }
 
-  llvm::Type* getLLVMType() { return _specs->getLLVMType(); }
+  TypeInfo* getTypeInfo() { return new TypeInfo(_specs, _decl); }
   std::string getName() { return _decl->getName(); }
 };
 
@@ -522,7 +528,6 @@ class ParamListAST : public NodeAST {
   }
 
   std::vector<TypeInfo *> getParamTypeInfos();
-  std::vector<llvm::Type*> getParamTypes();
   std::vector<std::string> getParamNames();
 };
 
@@ -701,7 +706,7 @@ class InitDeclaratorAST : public NodeAST {
     } 
   }
 
-  void codegen(llvm::Type* codegen);
+  void codegen(DeclSpecifiersAST *codegen);
 };
 
 class InitDeclaratorListAST : public NodeAST {
@@ -720,7 +725,7 @@ class InitDeclaratorListAST : public NodeAST {
     }
   }
 
-  void codegen(llvm::Type* codegen);
+  void codegen(DeclSpecifiersAST *specs);
 
 };
 

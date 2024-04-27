@@ -204,6 +204,11 @@ ExprRet* BinaryExprAST::codegen()
       retvalue = llvm_builder->CreateShl(L, R, "shltmp");
     else if (op == ">>")
       retvalue = llvm_builder->CreateAShr(L, R, "ashrtmp");
+    else
+    {
+      LogErrorV("Invalid binary operator");
+      return nullptr;
+    }
   } else if (L->getType()->isDoubleTy() && R->getType()->isDoubleTy()) {
     if (op == "+")
       retvalue = llvm_builder->CreateFAdd(L, R, "addtmp");
@@ -243,9 +248,18 @@ ExprRet* BinaryExprAST::codegen()
       L = llvm_builder->CreateFCmpUNE(L, R, "cmptmp");
       retvalue = llvm_builder->CreateUIToFP(L, Type::getDoubleTy(*llvm_context), "booltmp");
     }
+    else
+    {
+      LogErrorV("Invalid binary operator");
+      return nullptr;
+    }
+  }
+  else
+  {
+    LogErrorV("Invalid binary operator");
+    return nullptr;
   }
 
-  LogErrorV("Invalid binary operator");
   // TODO: consider both lret and rret.
   return new ExprRet(lret->getType(), retvalue);
 }
@@ -430,82 +444,99 @@ void BlockItemListAST::codegen()
   nested_symbols.pop_back();
 }
 
-Type* DeclSpecifiersAST::getLLVMType()
+BaseType DeclSpecifiersAST::getBaseType()
 {
-  if(_decl_specs.size() != 1)
+  PrimitiveTypeSpecAST* prim_spec = nullptr;
+  BaseType bt = constant_ty;
+  Qualifier ql = no_qual;
+
+  for (auto ptr: _decl_specs)
   {
-    LogErrorV("Number of specifiers do not match 1");
-    return nullptr;
+    prim_spec = dynamic_cast<PrimitiveTypeSpecAST*>(ptr);
+    if (prim_spec)
+      break;
   }
 
-  SpecifierAST* spec = *_decl_specs.begin();
-  PrimitiveTypeSpecAST* prim_spec = dynamic_cast<PrimitiveTypeSpecAST*>(spec);
   if(!prim_spec)
   {
     LogErrorV("Not a primitive Type Specifier");
-    return nullptr;
+    return bt;
   }
 
   std::string type_name = prim_spec->getName();
-  Type* ret_type = nullptr;
 
   if(type_name == "int")
-    ret_type = Type::getInt32Ty(*llvm_context);
+    bt = BaseType::int_ty;
   else if(type_name == "char")
-    ret_type = Type::getInt8Ty(*llvm_context);
+    bt = BaseType::char_ty;
   else if(type_name == "double")
-    ret_type = Type::getDoubleTy(*llvm_context);
+    bt = BaseType::double_ty;
   else if(type_name == "void")
-    ret_type = Type::getVoidTy(*llvm_context);
+    bt = BaseType::void_ty;
   else 
   {
     LogErrorV("Invalid Type");
-    return nullptr;
+    return bt;
   }
 
-  return ret_type;
+  return bt;
 }
 
-Type* TypeInfo::getLLVMType() {
-  Type* llvm_type = nullptr;
-
-  if (_basetype == BaseType::CONSTANT ) {
-    llvm_type = Type::getInt32Ty(*llvm_context);
-  } else if (_basetype == BaseType::VOID ) {
-    llvm_type = Type::getVoidTy(*llvm_context);
-  } else if (_basetype == BaseType::CHAR ) {
-    llvm_type = Type::getInt8Ty(*llvm_context);
-  } else if (_basetype == BaseType::SHORT) {
-    llvm_type = Type::getInt16Ty(*llvm_context);
-  } else if (_basetype == BaseType::INT ) {
-    llvm_type = Type::getInt32Ty(*llvm_context);
-  } else if (_basetype == BaseType::LONG ) {
-    llvm_type = Type::getInt64Ty(*llvm_context);
-  } else if (_basetype == BaseType::FLOAT) {
-    llvm_type = Type::getFloatTy(*llvm_context);
-  } else if (_basetype == BaseType::DOUBLE ) {
-    llvm_type = Type::getDoubleTy(*llvm_context);
-  } else if (_basetype == BaseType::BOOL ) {
-    llvm_type = Type::getInt1Ty(*llvm_context);
+Type* TypeInfo::getLLVMType() 
+{
+  if (!_ptrinfo.empty()) {
+    return PointerType::get(*llvm_context, 0);
   }
 
-  if (!_ptrinfo.empty()) {
-    llvm_type = PointerType::get(llvm_type, 0);
+  Type* llvm_type = nullptr;
+
+  if (_basetype == BaseType::constant_ty ) {
+    llvm_type = Type::getInt32Ty(*llvm_context);
+  } else if (_basetype == BaseType::void_ty ) {
+    llvm_type = Type::getVoidTy(*llvm_context);
+  } else if (_basetype == BaseType::char_ty ) {
+    llvm_type = Type::getInt8Ty(*llvm_context);
+  } else if (_basetype == BaseType::short_ty) {
+    llvm_type = Type::getInt16Ty(*llvm_context);
+  } else if (_basetype == BaseType::int_ty ) {
+    llvm_type = Type::getInt32Ty(*llvm_context);
+  } else if (_basetype == BaseType::long_ty ) {
+    llvm_type = Type::getInt64Ty(*llvm_context);
+  } else if (_basetype == BaseType::float_ty) {
+    llvm_type = Type::getFloatTy(*llvm_context);
+  } else if (_basetype == BaseType::double_ty ) {
+    llvm_type = Type::getDoubleTy(*llvm_context);
+  } else if (_basetype == BaseType::bool_ty ) {
+    llvm_type = Type::getInt1Ty(*llvm_context);
   }
 
   return llvm_type;
 }
 
-
-std::vector<Type*> ParamListAST::getParamTypes()
+std::vector<Qualifier> PointerAST::getQualVec()
 {
-  std::vector<Type*> types;
-  for (auto param: _params)
+  std::vector<Qualifier> ret;
+  for (auto ptr: _pointer_list)
   {
-    types.push_back(param->getLLVMType()); 
+    if (ptr)
+      ret.push_back(Qualifier::const_qual);
+    else ret.push_back(Qualifier::no_qual);
   }
+  return ret;
+}
 
-  return types;
+TypeInfo::TypeInfo(DeclSpecifiersAST *specs, DirectDeclaratorAST *decl)
+{
+  _basetype = specs->getBaseType();
+  _basequalifier = Qualifier::no_qual;
+  PointerAST *ptr = decl->getPointer();
+  if (ptr)
+    _ptrinfo = ptr->getQualVec();
+}
+
+bool TypeInfo::iscompatible(TypeInfo *other)
+{
+  return true;
 }
 
 std::vector<std::string> ParamListAST::getParamNames()
@@ -518,18 +549,24 @@ std::vector<std::string> ParamListAST::getParamNames()
   return names;
 }
 
-
-// DeclSpecifiersAST + IdDeclaratorAST = TypeInfo
-// DeclSpecifiersAST + FunctionDeclaratorAST = FunctionTypeInfo
+std::vector<Type*> FunctionTypeInfo::getLLVMParamTypes()
+{
+  std::vector<Type*> ret;
+  for (auto ty: _paramTypes)
+  {
+    ret.push_back(ty->getLLVMType());
+  }
+  return ret;
+}
 
 void FunctionDefinitionAST::codegen()
 {
-  Function *F = llvm_module->getFunction(_func_declarator->getName());
+  std::string funcname = _func_declarator->getName();
+  Function *F = llvm_module->getFunction(funcname);
 
   if(!F)
     _func_declarator->codegen(_decl_specs);
 
-  std::string funcname = _func_declarator->getName();
   F = llvm_module->getFunction(funcname);
 
   if(!F)
@@ -539,6 +576,7 @@ void FunctionDefinitionAST::codegen()
     LogErrorV("Cannot be redefined");
     return;
   }
+
 
   FunctionTypeInfo *fty = function_types[funcname];
   auto param_typeinfos = fty->getParamTypeInfos();
@@ -587,23 +625,23 @@ void FunctionDefinitionAST::codegen()
 
 void NormalDeclAST::codegen()
 {
-  _init_decl_list->codegen(_specs->getLLVMType());
+  _init_decl_list->codegen(_specs);
 }
 
-void InitDeclaratorListAST::codegen(Type* specifier_type)
+void InitDeclaratorListAST::codegen(DeclSpecifiersAST *specs)
 {
   for (auto idecl: _init_declarators)
   {
-    idecl->codegen(specifier_type);
+    idecl->codegen(specs);
   }
 }
 
-Value *InitializerAST::codegen()
+ExprRet *InitializerAST::codegen()
 {
   return _assignment_expression->codegen();
 }
 
-Value *InitializerListAST::codegen()
+ExprRet *InitializerListAST::codegen()
 {
   LogErrorV("InitDeclaratorListAST codegen not implemented yet");
   return nullptr;
@@ -611,22 +649,40 @@ Value *InitializerListAST::codegen()
 
 void InitDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
-  _direct_decl->codegen();
+  _direct_decl->codegen(specs);
   if (!_initializer)
     return;
 
-  Value *val = nullptr; 
-  val = _initializer->codegen();
-  if (!val)
+  if ( nested_symbols.size() == 0 )
   {
-    LogErrorV("expression did not return a value");
-    return;
+    // global scope
   }
+  else
+  {
+    Value *val = nullptr; 
+    ExprRet *ret = _initializer->codegen();
+    val = ret->getValue();
+    if (!val)
+    {
+      LogErrorV("expression did not return a value");
+      return;
+    }
 
-  std::string varname = _direct_decl->getName();
-  VarData var = nested_symbols.back()[varname];
+    std::string varname = _direct_decl->getName();
+    VarData var = nested_symbols.back()[varname];
 
-  llvm_builder->CreateStore(val, (Value *) var.allocainst);
+    llvm_builder->CreateStore(val, (Value *) var.allocainst);
+  }
+}
+
+std::vector<TypeInfo *> ParamListAST::getParamTypeInfos()
+{
+  std::vector<TypeInfo *> ret;
+  for (auto param : _params)
+    ret.push_back(param->getTypeInfo());
+
+  // TODO: handle ellipsis 
+  return ret;
 }
 
 void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
@@ -634,15 +690,20 @@ void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
   // incorporate ellipsis
   std::string funcname = _identifier->getName();
   TypeInfo *RetTypeInfo = new TypeInfo(specs, _identifier);
+  Type *retType = RetTypeInfo->getLLVMType();
+
+
   auto param_typeinfos = _paramlist->getParamTypeInfos();
   auto param_names = _paramlist->getParamNames();
 
   FunctionTypeInfo *fty = new FunctionTypeInfo(RetTypeInfo, param_typeinfos);
+
   function_types[funcname] = fty;
 
   auto param_llvmtypes = fty->getLLVMParamTypes();
 
-  FunctionType* FT = FunctionType::get(RetTypeInfo->getLLVMType(), param_llvmtypes , false);
+  FunctionType* FT = FunctionType::get(retType, param_llvmtypes , false);
+
   Function* F = Function::Create(FT, Function::ExternalLinkage, funcname, *llvm_module);
 
   unsigned int i = 0;
@@ -654,15 +715,22 @@ void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 
 void IdDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
-  if (nested_symbols.back().find(_name) != nested_symbols.back().end())
+  if(nested_symbols.size() == 0)
   {
-    LogErrorV("Variable already exists");
-    return;
+    // global variable
   }
-  TypeInfo *ty = new TypeInfo(specs, this);
-  Function *F = llvm_builder->GetInsertBlock()->getParent();
-  AllocaInst *A = CreateEntryBlockAlloca(F, _direct_decl->getName(), specifier_type);  
+  else
+  {
+    if (nested_symbols.back().find(_name) != nested_symbols.back().end())
+    {
+      LogErrorV("Variable already exists");
+      return;
+    }
+    TypeInfo *ty = new TypeInfo(specs, this);
+    Function *F = llvm_builder->GetInsertBlock()->getParent();
+    AllocaInst *A = CreateEntryBlockAlloca(F, _name, ty->getLLVMType());  
 
-  nested_symbols.back()[_name] = {ty, Alloca};
+    nested_symbols.back()[_name] = {ty, A};
+  }
   //cout << "Declared variable: " << _name << endl;
 }
