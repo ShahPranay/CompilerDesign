@@ -272,8 +272,8 @@ constant_expression
   ;
 
 declaration
-  : declaration_specifiers ';' { $$ = new NormalDeclAST($1); }
-  | declaration_specifiers init_declarator_list ';' { $$ = new NormalDeclAST($1, $2); }
+  : declaration_specifiers ';' { $$ = new NormalDeclarationAST($1); cout << "Normal decl created" << endl;}
+  | declaration_specifiers init_declarator_list ';' { $$ = new NormalDeclarationAST($1, $2); }
   | static_assert_declaration
   ;
 
@@ -297,7 +297,7 @@ init_declarator_list
 
 init_declarator
   : declarator '=' initializer { $$ = new InitDeclaratorAST($1, $3); }
-  | declarator { $$ = new InitDeclaratorAST($1); }
+  | declarator { $$ = new InitDeclaratorAST($1); cout << "init decl created" << endl; }
   ;
 
 storage_class_specifier
@@ -593,7 +593,7 @@ translation_unit
 
 external_declaration
   : function_definition 
-  | declaration
+  | declaration { $$ = new GlobalDeclarationAST($1); }
   ;
 
 function_definition

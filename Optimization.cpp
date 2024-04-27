@@ -24,10 +24,6 @@ ExprAST* UnaryExprAST::constantFolding() {
     IntegerExprAST* intexpr = dynamic_cast<IntegerExprAST *>(_expr);
 
     if (intexpr) {
-        if (_op == "++")
-            return new IntegerExprAST(intexpr->getVal() + 1);
-        if (_op == "--")
-            return new IntegerExprAST(intexpr->getVal() - 1);
         if (_op == "~")
             return new IntegerExprAST(~intexpr->getVal());
         if (_op == "!")
@@ -255,8 +251,9 @@ void InitDeclaratorListAST::constantFolding() {
     }
 }
 
-void NormalDeclAST::constantFolding() {
+BlockItemAST *NormalDeclarationAST::constantFolding() {
     _init_decl_list->constantFolding();
+    return this;
 }
 
 

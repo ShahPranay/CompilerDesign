@@ -1,8 +1,8 @@
-int printf(const char *format, ...);
+/* int printf(const char *format, ...); */
 
-int main(int argc, char **argv)
+int main()
 {
-  int *a;
-  *a = 2;
-  printf("Value of a = %d", *a);
+  int a;
+  a = 1;
+  /* printf("Value of a = %d", a); */
 }

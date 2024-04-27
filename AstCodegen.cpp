@@ -164,7 +164,7 @@ ExprRet* UnaryExprAST::codegen() {
   }
   else if (_op == "!") 
   {
-    if (!val->getType()->isIntegerTy(1)) {
+    if (!val->getType()->isIntegerTy()) {
         LogErrorV("logical not operator is not supported for this type");
         return nullptr;
     }
@@ -222,6 +222,11 @@ ExprRet* BinaryExprAST::codegen()
     {
       LogErrorV("Unknown variable name.");
       return nullptr;
+    }
+
+    if (VarValue->getType()->isPointerTy())
+    {
+      cout << "is pointer type" << endl;
     }
 
     if(!lvalueData.type->iscompatible(rret->getType()))
@@ -689,6 +694,7 @@ void FunctionDefinitionAST::codegen()
     ret_alloca = CreateEntryBlockAlloca(F, "dummy_ret", ret_type);
   }
 
+
   _compound_stmts->codegen();
 
   if(no_ret)
@@ -707,9 +713,22 @@ void FunctionDefinitionAST::codegen()
   verifyFunction(*F);
 }
 
-void NormalDeclAST::codegen()
+std::pair<DeclSpecifiersAST *, InitDeclaratorListAST *> NormalDeclarationAST::claimResources()
+{ 
+  std::pair<DeclSpecifiersAST *, InitDeclaratorListAST *> pair = { _specs, _init_decl_list }; 
+  _specs = nullptr;
+  _init_decl_list = nullptr; 
+  return pair; 
+}
+
+void NormalDeclarationAST::codegen()
 {
   _init_decl_list->codegen(_specs);
+}
+
+void GlobalDeclarationAST::codegen()
+{
+
 }
 
 void InitDeclaratorListAST::codegen(DeclSpecifiersAST *specs)
@@ -799,6 +818,7 @@ void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 
 void IdDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
+  cout << "Id decl" << endl;
   if(nested_symbols.size() == 0)
   {
     // global variable

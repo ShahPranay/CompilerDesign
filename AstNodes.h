@@ -194,7 +194,7 @@ class ExprRet {
 
 class ExternalDeclsAST : public NodeAST {
   public:
-    virtual void constantFolding() = 0;
+    virtual void constantFolding() {  };
     virtual void codegen() = 0;
 };
 
@@ -793,32 +793,45 @@ class InitDeclaratorListAST : public NodeAST {
 
 };
 
-class DeclarationAST : public ExternalDeclsAST {
-  public:
-    virtual void codegen() = 0;
+class DeclarationAST : public BlockItemAST
+{
+
 };
 
-class NormalDeclAST : public DeclarationAST {
+class NormalDeclarationAST : public DeclarationAST {
   DeclSpecifiersAST* _specs;
   InitDeclaratorListAST* _init_decl_list;
 
   public:
-  NormalDeclAST(DeclSpecifiersAST* declspecs) : _specs(declspecs), _init_decl_list(nullptr) {  }
-  NormalDeclAST(DeclSpecifiersAST* declspecs, InitDeclaratorListAST* init_list) : _specs(declspecs), _init_decl_list(init_list) {  }
+  NormalDeclarationAST(DeclSpecifiersAST* declspecs) : _specs(declspecs), _init_decl_list(nullptr) {  }
+  NormalDeclarationAST(DeclSpecifiersAST* declspecs, InitDeclaratorListAST* init_list) : _specs(declspecs), _init_decl_list(init_list) {  }
   // DeclSpecifierAST
   // list of init_declarator
-  virtual void print(int indent) {
+  void print(int indent) override{
     printIndent(indent);
     cout << "Declaration " << endl;
     indent++;
     _specs->print(indent);
     if (_init_decl_list != nullptr) _init_decl_list->print(indent);
   }
-  virtual void codegen() override;
-  virtual void constantFolding();
+  void codegen() override;
+  BlockItemAST *constantFolding() override;
+  std::pair<DeclSpecifiersAST *, InitDeclaratorListAST *> claimResources();
 };
 
-class StaticAssertDeclAST : public DeclarationAST {
+class GlobalDeclarationAST : public ExternalDeclsAST {
+  DeclSpecifiersAST *_specs;
+  InitDeclaratorListAST* _init_decl_list;
 
+  public:
+  GlobalDeclarationAST(DeclarationAST *decl) 
+  { 
+    auto normaldecl = dynamic_cast<NormalDeclarationAST *>(decl);
+    auto pair = normaldecl->claimResources();
+    _specs = pair.first;
+    _init_decl_list = pair.second;
+    delete normaldecl;
+  };
+
+  void codegen() override;
 };
-
