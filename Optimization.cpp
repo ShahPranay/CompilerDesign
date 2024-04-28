@@ -435,7 +435,8 @@ bool IfElseStmtAST::localDeadCodeElim(std::set<std::string>& deadVariables)
 bool WhileStmtAST::localDeadCodeElim(std::set<std::string>& deadVariables)
 {
   deadVariables.clear();
-  _statement->localDeadCodeElim(deadVariables);
+  if (_statement)
+    _statement->localDeadCodeElim(deadVariables);
   deadVariables.clear();
 
   return false;

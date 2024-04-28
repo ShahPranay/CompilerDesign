@@ -239,7 +239,7 @@ class ExprAST : public NodeAST {
   public:
   virtual ExprRet* codegen() = 0;
   virtual ExprAST* constantFolding() { return this; };
-  virtual void livenessAnalysis(std::set<std::string>& deadVariables) { cout << ""<<endl; };
+  virtual void livenessAnalysis(std::set<std::string>& deadVariables) {  };
 };
 
 class BlockItemAST : public NodeAST {
@@ -572,7 +572,7 @@ class BlockItemListAST : public StmtAST {
   bool localDeadCodeElim(std::set<std::string>& deadVariables);
   void codegen();
 
-  bool isEmpty() { cout << _items.size() ;return _items.size() == 0; }
+  bool isEmpty() { return _items.size() == 0; }
 };
 
 class ParamDeclAST : public NodeAST {

@@ -26,9 +26,6 @@ int main()
     int c = 91;
   }
 
-  {
-
-  }
 }
 
 int def()
