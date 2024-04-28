@@ -425,9 +425,18 @@ class WhileStmtAST : public StmtAST {
 
   virtual void print(int indent) {
     printIndent(indent);
-    cout << "While Condition\n";
-    _expression->print(indent+1);
-    _statement->print(indent);
+    cout << "While Statement" << endl;
+    indent++;
+    if (_expression)
+    {
+      printIndent(indent);
+      cout << "While Condition" << endl;
+      _expression->print(indent+1);
+    }
+    if(_statement)
+    {
+      _statement->print(indent);
+    }
   } 
 
   virtual StmtAST* constantFolding();
@@ -540,6 +549,8 @@ class BlockItemListAST : public StmtAST {
 
   virtual StmtAST* constantFolding();
   void codegen();
+
+  bool isEmpty() { cout << _items.size() ;return _items.size() == 0; }
 };
 
 class ParamDeclAST : public NodeAST {
@@ -665,7 +676,7 @@ class FunctionDefinitionAST : public ExternalDeclsAST {
     if (_compound_stmts != nullptr) _compound_stmts->print(indent+1);
   }
 
-  bool isReturnPresent() { return _compound_stmts->isReturnPresent(); }
+  bool isReturnPresent() { if(!_compound_stmts) return false; return _compound_stmts->isReturnPresent(); }
 
   virtual void constantFolding();
   void codegen() override;

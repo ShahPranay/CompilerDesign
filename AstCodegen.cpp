@@ -498,7 +498,7 @@ void ReturnStmtAST::codegen()
 
     if (Ret->isLvalue())
     {
-      RetVal = llvm_builder->CreateLoad(Ret->getTypeInfo()->getLLVMType(), RetVal, "rval");
+      RetVal = llvm_builder->CreateLoad(Ret->getTypeInfo()->getRvalLLVMType(), RetVal, "rval");
     }
 
     Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
@@ -569,7 +569,9 @@ void WhileStmtAST::codegen()
 
   TheFunction->insert(TheFunction->end(), LoopBlock);
   llvm_builder->SetInsertPoint(LoopBlock);
-  _statement->codegen();
+
+  if(_statement)
+    _statement->codegen();
 
   llvm_builder->CreateBr(CondBlock);
 
@@ -818,7 +820,8 @@ void FunctionDefinitionAST::codegen()
   }
 
 
-  _compound_stmts->codegen();
+  if (_compound_stmts)
+    _compound_stmts->codegen();
 
   if(no_ret)
   {
