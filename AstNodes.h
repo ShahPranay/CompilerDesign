@@ -140,6 +140,7 @@ class DirectDeclaratorAST : public NodeAST {
     DirectDeclaratorAST() : _pointer(nullptr) {  }
     void updatePointer(PointerAST* ptr) { _pointer = ptr; }
     virtual void codegen(DeclSpecifiersAST *specs ) = 0;
+    virtual void globalCodegen(DeclSpecifiersAST *specs ) = 0;
     virtual std::string getName() = 0;
     PointerAST *getPointer() { return _pointer; }
 };
@@ -161,7 +162,7 @@ class TypeInfo {
   bool iscompatible(TypeInfo *other);
   bool isLvalue() { return _isLvalue; }
   void setToRval() { _isLvalue = false; }
-  void setQualVec(std::vector<Qualifier>& qualvec) { _ptrinfo = qualvec; }
+  void setPtrInfo(std::vector<Qualifier> qualvec) { _ptrinfo = qualvec; }
 
   BaseType getBaseType() { return _basetype; }
   Qualifier getBaseQual() { return _basequalifier; }
@@ -563,7 +564,7 @@ class ParamDeclAST : public NodeAST {
     if (_decl != nullptr) _decl->print(indent);
   }
 
-  TypeInfo* getTypeInfo() { return new TypeInfo(_specs, _decl, true); }
+  TypeInfo* getTypeInfo() { return new TypeInfo(_specs, _decl, false); }
   std::string getName() { return _decl->getName(); }
 };
 
@@ -623,6 +624,7 @@ class FunctionDeclaratorAST : public DirectDeclaratorAST {
   virtual std::string getName() override { return _identifier->getName(); }
 
   void codegen(DeclSpecifiersAST* specs) override;
+  void globalCodegen(DeclSpecifiersAST *specs);
 };
 
 class IdDeclaratorAST : public DirectDeclaratorAST {
@@ -645,6 +647,7 @@ class IdDeclaratorAST : public DirectDeclaratorAST {
   virtual std::string getName() override { return _name; }
   llvm::AllocaInst* getAlloca();
   virtual void codegen(DeclSpecifiersAST *specs) override;
+  void globalCodegen(DeclSpecifiersAST *specs);
 };
 
 class FunctionDefinitionAST : public ExternalDeclsAST {
@@ -781,6 +784,7 @@ class InitDeclaratorAST : public NodeAST {
   }
 
   void codegen(DeclSpecifiersAST *codegen);
+  void globalCodegen(DeclSpecifiersAST *specs);
   void constantFolding();
 };
 
@@ -801,6 +805,7 @@ class InitDeclaratorListAST : public NodeAST {
   }
 
   void codegen(DeclSpecifiersAST *specs);
+  void globalCodegen(DeclSpecifiersAST *specs);
   void constantFolding();
 
 };
@@ -846,4 +851,13 @@ class GlobalDeclarationAST : public ExternalDeclsAST {
   };
 
   void codegen() override;
+  
+  void print(int indent) override
+  {
+    printIndent(indent);
+    cout << "Global Declaration " << endl;
+    indent++;
+    _specs->print(indent);
+    if (_init_decl_list != nullptr) _init_decl_list->print(indent);
+  }
 };

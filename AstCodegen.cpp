@@ -137,8 +137,9 @@ ExprRet* StrLiteralAST::codegen()
   /* globalvar->setAlignment(MaybeAlign(1)); */
 
   // TODO: change typeinfo
-  TypeInfo *ty = new TypeInfo();
-  return new ExprRet(ty, llvm_builder->CreateGlobalString(_str, "str"));
+  TypeInfo *ty = new TypeInfo(BaseType::char_ty);
+  ty->setPtrInfo({Qualifier::const_qual});
+  return new ExprRet(ty, llvm_builder->CreateGlobalString(StringRef(_str), "str"));
 }
 
 
@@ -702,7 +703,7 @@ std::vector<Type*> FunctionTypeInfo::getLLVMParamTypes()
   std::vector<Type*> ret;
   for (auto ty: _paramTypes)
   {
-    ret.push_back(ty->getLLVMType());
+    ret.push_back(ty->getRvalLLVMType());
   }
   return ret;
 }
@@ -713,7 +714,7 @@ void FunctionDefinitionAST::codegen()
   Function *F = llvm_module->getFunction(funcname);
 
   if(!F)
-    _func_declarator->codegen(_decl_specs);
+    _func_declarator->globalCodegen(_decl_specs);
 
   F = llvm_module->getFunction(funcname);
 
@@ -787,7 +788,8 @@ void NormalDeclarationAST::codegen()
 
 void GlobalDeclarationAST::codegen()
 {
-
+  cout << "inside global decl" << endl;
+  _init_decl_list->globalCodegen(_specs); 
 }
 
 void InitDeclaratorListAST::codegen(DeclSpecifiersAST *specs)
@@ -795,6 +797,14 @@ void InitDeclaratorListAST::codegen(DeclSpecifiersAST *specs)
   for (auto idecl: _init_declarators)
   {
     idecl->codegen(specs);
+  }
+}
+
+void InitDeclaratorListAST::globalCodegen(DeclSpecifiersAST *specs)
+{
+  for (auto idecl: _init_declarators)
+  {
+    idecl->globalCodegen(specs);
   }
 }
 
@@ -809,18 +819,17 @@ ExprRet *InitializerListAST::codegen()
   return nullptr;
 }
 
+void InitDeclaratorAST::globalCodegen(DeclSpecifiersAST *specs)
+{
+  _direct_decl->globalCodegen(specs);
+}
+
 void InitDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
   _direct_decl->codegen(specs);
   if (!_initializer)
     return;
 
-  if ( nested_symbols.size() == 0 )
-  {
-    // global scope
-  }
-  else
-  {
     Value *val = nullptr; 
     ExprRet *ret = _initializer->codegen();
     val = ret->getValue();
@@ -834,7 +843,6 @@ void InitDeclaratorAST::codegen(DeclSpecifiersAST *specs)
     VarData var = nested_symbols.back()[varname];
 
     llvm_builder->CreateStore(val, (Value *) var.allocainst);
-  }
 }
 
 std::vector<TypeInfo *> ParamListAST::getParamTypeInfos()
@@ -847,7 +855,7 @@ std::vector<TypeInfo *> ParamListAST::getParamTypeInfos()
   return ret;
 }
 
-void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
+void FunctionDeclaratorAST::globalCodegen(DeclSpecifiersAST *specs)
 {
   // incorporate ellipsis
   std::string funcname = _identifier->getName();
@@ -873,26 +881,30 @@ void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
   {
     Arg.setName(param_names[i++]);
   }
+  cout << "declared function" << funcname << endl;
+}
+
+void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
+{
+  LogErrorV("Non globalCodegen not allow for functions");
+}
+
+void IdDeclaratorAST::globalCodegen(DeclSpecifiersAST *specs)
+{
+
 }
 
 void IdDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
-  if(nested_symbols.size() == 0)
+  if (nested_symbols.back().find(_name) != nested_symbols.back().end())
   {
-    // global variable
+    LogErrorV("Variable already exists");
+    return;
   }
-  else
-  {
-    if (nested_symbols.back().find(_name) != nested_symbols.back().end())
-    {
-      LogErrorV("Variable already exists");
-      return;
-    }
-    TypeInfo *ty = new TypeInfo(specs, this, true);
+  TypeInfo *ty = new TypeInfo(specs, this, true);
 
-    Function *F = llvm_builder->GetInsertBlock()->getParent();
-    AllocaInst *A = CreateEntryBlockAlloca(F, _name, ty->getLLVMType());  
+  Function *F = llvm_builder->GetInsertBlock()->getParent();
+  AllocaInst *A = CreateEntryBlockAlloca(F, _name, ty->getLLVMType());  
 
-    nested_symbols.back()[_name] = VarData(ty, A);
-  }
+  nested_symbols.back()[_name] = VarData(ty, A);
 }
