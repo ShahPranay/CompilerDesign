@@ -41,7 +41,8 @@ void cleanup_module()
 }
 
 void LogErrorV(const char *Str) {
-  errs() << "Error: " << Str << "\n";
+  errs() << "Error: " << Str;
+  cout << endl;
 }
 
 static AllocaInst *CreateEntryBlockAlloca(Function *F, StringRef var_name, Type *type)
@@ -64,6 +65,27 @@ ExprRet* IntegerExprAST::codegen() {
 ExprRet* DoubleExprAST::codegen() {
   TypeInfo *ty = new TypeInfo();
   return new ExprRet(ty, ConstantFP::get(*llvm_context, APFloat(_val)));
+}
+
+TypeInfo::TypeInfo(TypeInfo *ty, bool isDeref)
+{
+  _basetype = ty->getBaseType();
+  _basequalifier = ty->getBaseQual();
+  _ptrinfo = ty->getPtrInfo();
+  _isLvalue = ty->isLvalue();
+
+  if (isDeref)
+  {
+    if (_ptrinfo.size() == 0)
+      LogErrorV("Cant dereference a non pointer type.");
+    else
+      _ptrinfo.pop_back();
+  }
+}
+
+TypeInfo *TypeInfo::dereference()
+{
+  return new TypeInfo(this, true);
 }
 
 VarData IdentifierAST::getVarData()
@@ -95,6 +117,16 @@ VarData IdentifierAST::getVarData()
   return V;
 }
 
+ExprRet* IdentifierAST::codegen() 
+{
+  VarData V = getVarData();
+  AllocaInst *A = V.allocainst;
+  if (!A) {
+    return nullptr;  // If allocation instruction not found, return nullptr
+  }
+  return new ExprRet(new TypeInfo(V.typeinfo), A);
+}
+
 ExprRet* StrLiteralAST::codegen()
 {
   /* ArrayType *strtype = ArrayType::get(Type::getInt8Ty(*llvm_context), _str.size()); */
@@ -103,53 +135,82 @@ ExprRet* StrLiteralAST::codegen()
   /* globalvar->setConstant(true); */
 
   /* globalvar->setAlignment(MaybeAlign(1)); */
+
+  // TODO: change typeinfo
   TypeInfo *ty = new TypeInfo();
   return new ExprRet(ty, llvm_builder->CreateGlobalString(_str, "str"));
 }
 
-ExprRet* IdentifierAST::codegen() 
-{
-  VarData V = getVarData();
-  AllocaInst *A = V.allocainst;
-  if (!A) {
-    return nullptr;  // If allocation instruction not found, return nullptr
-  }
-  // copy typeinfo
-  Value *val = llvm_builder->CreateLoad(A->getAllocatedType(), A, _name.c_str());
-  return new ExprRet(V.type, val);
-}
 
-ExprRet* UnaryExprAST::codegen() {
-  ExprRet* ret = _expr->codegen();
-  
+ExprRet* UnaryExprAST::codegen() 
+{
+  ExprRet* ret; 
+  TypeInfo* typeinfo, *ret_typeinfo;
+  Value* val;
+
+  ret = _expr->codegen();
+
   if (!ret) {
     return nullptr;
   }
 
-  TypeInfo* type = ret->getType();
-  Value* val = ret->getValue();
+  typeinfo = ret->getTypeInfo();
+  val = ret->getValue();
 
   if (_op == "&") 
   {
     return nullptr;
-    //Todo
   } 
   else if (_op == "*") 
   {
-    //Todo
-    return nullptr;
+    if (!val->getType()->isPointerTy())
+    {
+      LogErrorV("Cannot dereference a non pointer type");
+      return nullptr;
+    }
+
+    ret_typeinfo = typeinfo->dereference();
+    /* delete typeinfo; */
+
+    Value *loaded = llvm_builder->CreateLoad(ret_typeinfo->getLLVMType(), val, "deref");
+
+    return new ExprRet(ret_typeinfo, loaded);
   } 
-  else if (_op == "+") 
+  else if (_op == "++") 
+  {
+    if (!val->getType()->isIntegerTy()) {
+        LogErrorV("Cannot decrement non-integer type");
+        return nullptr;
+    }
+    Value *one = llvm::ConstantInt::get(val->getType(), 1);
+    Value *result = llvm_builder->CreateAdd(val, one, "increment");
+    return new ExprRet(typeinfo, result); 
+  }
+  else if (_op == "--") 
+  {
+    if (!val->getType()->isIntegerTy()) {
+        LogErrorV("Cannot decrement non-integer type");
+        return nullptr;
+    }
+    Value *one = llvm::ConstantInt::get(val->getType(), 1);
+    Value *result = llvm_builder->CreateSub(val, one, "decrement");
+    return new ExprRet(typeinfo, result);
+  }
+
+  if (_op == "+") 
   {
     return ret;
   }
   else if (_op == "-")
   {
-    if (val->getType()->isIntegerTy()) {
-        return new ExprRet(type, llvm_builder->CreateNeg(val));
-    } else if (val->getType()->isDoubleTy()) {
-        return new ExprRet(type, llvm_builder->CreateFNeg(val));
-    } else {
+    if (val->getType()->isIntegerTy()) 
+      return new ExprRet(typeinfo, llvm_builder->CreateNeg(val));
+
+    else if (val->getType()->isDoubleTy())
+        return new ExprRet(typeinfo, llvm_builder->CreateFNeg(val));
+
+    else 
+    {
         LogErrorV("Unary minus operator is not supported for this type");
         return nullptr;
     }
@@ -160,7 +221,7 @@ ExprRet* UnaryExprAST::codegen() {
         LogErrorV("Unary not operator is not supported for this type");
         return nullptr;
     }
-    return new ExprRet(type, llvm_builder->CreateNot(val));
+    return new ExprRet(typeinfo, llvm_builder->CreateNot(val));
   }
   else if (_op == "!") 
   {
@@ -168,27 +229,7 @@ ExprRet* UnaryExprAST::codegen() {
         LogErrorV("logical not operator is not supported for this type");
         return nullptr;
     }
-    return new ExprRet(type, llvm_builder->CreateNot(val));
-  }
-  else if (_op == "++") 
-  {
-    if (!val->getType()->isIntegerTy()) {
-        LogErrorV("Cannot decrement non-integer type");
-        return nullptr;
-    }
-    Value *one = llvm::ConstantInt::get(val->getType(), 1);
-    Value *result = llvm_builder->CreateAdd(val, one, "increment");
-    return new ExprRet(type, result); 
-  }
-  else if (_op == "--") 
-  {
-    if (!val->getType()->isIntegerTy()) {
-        LogErrorV("Cannot decrement non-integer type");
-        return nullptr;
-    }
-    Value *one = llvm::ConstantInt::get(val->getType(), 1);
-    Value *result = llvm_builder->CreateSub(val, one, "decrement");
-    return new ExprRet(type, result);
+    return new ExprRet(typeinfo, llvm_builder->CreateNot(val));
   }
   else 
   {
@@ -200,55 +241,56 @@ ExprRet* UnaryExprAST::codegen() {
 
 ExprRet* BinaryExprAST::codegen() 
 {
+  /* cout << "Binary op = " << op << endl; */
   ExprRet *lret, *rret;
   Value *L, *R, *retvalue = nullptr;
-
-  if (op == "=")
-  {
-    IdentifierAST *LHSE = static_cast<IdentifierAST*>(left);
-    if (!LHSE){
-      LogErrorV("destination of \'=\' must be a variable.");
-      return nullptr;
-    }
-
-    rret = right->codegen();
-    R = rret->getValue();
-    if (!R)
-      return nullptr;
-
-    VarData lvalueData = LHSE->getVarData();
-    Value *VarValue = lvalueData.allocainst; 
-    if(!VarValue)
-    {
-      LogErrorV("Unknown variable name.");
-      return nullptr;
-    }
-
-    if (VarValue->getType()->isPointerTy())
-    {
-      cout << "is pointer type" << endl;
-    }
-
-    if(!lvalueData.type->iscompatible(rret->getType()))
-    {
-      LogErrorV("Types not compatible");
-      return nullptr;
-    }
-
-    llvm_builder->CreateStore(R, VarValue);
-    return rret;
-  }
 
   lret = left->codegen();
   rret = right->codegen();
 
-  // typechecking
+  if (!lret || !rret)
+  {
+    LogErrorV("Expressions did not evaluate");
+    return nullptr; 
+  }
 
   L = lret->getValue();
   R = rret->getValue();
 
-  if (!L || !R)
+  if (!R || !L)
     return nullptr;
+
+  if (op == "=")
+  {
+    if (!lret->isLvalue())
+    {
+      LogErrorV("LHS of assignment operator should be a memory address");  
+      return nullptr;
+    }
+
+    if (rret->isLvalue())
+    {
+      R = llvm_builder->CreateLoad(rret->getTypeInfo()->getRvalLLVMType(), R, "rval");
+      rret->getTypeInfo()->setToRval();
+    }
+
+    /* cout << "before store" << endl; */
+
+    llvm_builder->CreateStore(R, L);
+
+    /* cout << "after store" << endl; */
+    return rret;
+  }
+
+  if (lret->isLvalue())
+  {
+    Type *rtype = lret->getTypeInfo()->getRvalLLVMType();
+    L = llvm_builder->CreateLoad(rtype, L, "rval");
+  }
+  if (rret->isLvalue())
+  {
+    R = llvm_builder->CreateLoad(rret->getTypeInfo()->getRvalLLVMType(), R, "rval");
+  }
 
   if(op == "||")
   {
@@ -349,8 +391,10 @@ ExprRet* BinaryExprAST::codegen()
     return nullptr;
   }
 
-  // TODO: consider both lret and rret.
-  return new ExprRet(lret->getType(), retvalue);
+  TypeInfo *ret_typeinfo = new TypeInfo(lret->getTypeInfo());
+  ret_typeinfo->setToRval();
+
+  return new ExprRet(ret_typeinfo, retvalue);
 }
 
 void ExprStmtAST::codegen()
@@ -416,6 +460,11 @@ void ReturnStmtAST::codegen()
     if (!RetVal) {
       LogErrorV("Failed to generate code for return expression");
       return;
+    }
+
+    if (Ret->isLvalue())
+    {
+      RetVal = llvm_builder->CreateLoad(Ret->getTypeInfo()->getLLVMType(), RetVal, "rval");
     }
 
     Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
@@ -573,7 +622,14 @@ BaseType DeclSpecifiersAST::getBaseType()
 
 Type* TypeInfo::getLLVMType() 
 {
-  if (!_ptrinfo.empty()) {
+  if (_isLvalue)
+    return PointerType::get(*llvm_context, 0);
+  return getRvalLLVMType();
+}
+
+Type *TypeInfo::getRvalLLVMType()
+{
+  if (_ptrinfo.size() != 0) {
     return PointerType::get(*llvm_context, 0);
   }
 
@@ -614,13 +670,16 @@ std::vector<Qualifier> PointerAST::getQualVec()
   return ret;
 }
 
-TypeInfo::TypeInfo(DeclSpecifiersAST *specs, DirectDeclaratorAST *decl)
+TypeInfo::TypeInfo(DeclSpecifiersAST *specs, DirectDeclaratorAST *decl, bool islvalue)
 {
   _basetype = specs->getBaseType();
   _basequalifier = Qualifier::no_qual;
   PointerAST *ptr = decl->getPointer();
+  _isLvalue = islvalue;
   if (ptr)
+  {
     _ptrinfo = ptr->getQualVec();
+  }
 }
 
 bool TypeInfo::iscompatible(TypeInfo *other)
@@ -792,7 +851,7 @@ void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
   // incorporate ellipsis
   std::string funcname = _identifier->getName();
-  TypeInfo *RetTypeInfo = new TypeInfo(specs, _identifier);
+  TypeInfo *RetTypeInfo = new TypeInfo(specs, _identifier, false);
   Type *retType = RetTypeInfo->getLLVMType();
 
 
@@ -818,7 +877,6 @@ void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 
 void IdDeclaratorAST::codegen(DeclSpecifiersAST *specs)
 {
-  cout << "Id decl" << endl;
   if(nested_symbols.size() == 0)
   {
     // global variable
@@ -830,11 +888,11 @@ void IdDeclaratorAST::codegen(DeclSpecifiersAST *specs)
       LogErrorV("Variable already exists");
       return;
     }
-    TypeInfo *ty = new TypeInfo(specs, this);
+    TypeInfo *ty = new TypeInfo(specs, this, true);
+
     Function *F = llvm_builder->GetInsertBlock()->getParent();
     AllocaInst *A = CreateEntryBlockAlloca(F, _name, ty->getLLVMType());  
 
-    nested_symbols.back()[_name] = {ty, A};
+    nested_symbols.back()[_name] = VarData(ty, A);
   }
-  //cout << "Declared variable: " << _name << endl;
 }

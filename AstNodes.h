@@ -147,18 +147,29 @@ class DirectDeclaratorAST : public NodeAST {
 // make PointerAST and DeclSpecifiersAST lightweight (for easy copying). 
 
 class TypeInfo {
-  public:
   BaseType _basetype;
   Qualifier _basequalifier;
   std::vector<Qualifier> _ptrinfo;
+  bool _isLvalue;
 
-  TypeInfo(DeclSpecifiersAST *declspecs, DirectDeclaratorAST *ddecl);
-  TypeInfo(BaseType bt, Qualifier bql = Qualifier::no_qual) : _basetype(bt), _basequalifier(bql) {  };
-  TypeInfo() : _basetype(BaseType::constant_ty), _basequalifier(Qualifier::no_qual) {  }
+  public:
+  TypeInfo(DeclSpecifiersAST *declspecs, DirectDeclaratorAST *ddecl, bool islvalue);
+  TypeInfo(BaseType bt, Qualifier bql = Qualifier::no_qual) : _basetype(bt), _basequalifier(bql) {  }
+  TypeInfo() : _basetype(BaseType::constant_ty), _basequalifier(Qualifier::no_qual), _isLvalue(false) {  }
+  TypeInfo(TypeInfo *ty, bool isDeref = false); // deep copy
 
   bool iscompatible(TypeInfo *other);
+  bool isLvalue() { return _isLvalue; }
+  void setToRval() { _isLvalue = false; }
+  void setQualVec(std::vector<Qualifier>& qualvec) { _ptrinfo = qualvec; }
+
+  BaseType getBaseType() { return _basetype; }
+  Qualifier getBaseQual() { return _basequalifier; }
+  std::vector<Qualifier>& getPtrInfo() { return _ptrinfo; }
+
   llvm::Type *getLLVMType();
-  void setQualVec(std::vector<Qualifier>&& qualvec) { _ptrinfo = qualvec; }
+  llvm::Type *getRvalLLVMType();
+  TypeInfo *dereference();
 };
 
 class FunctionTypeInfo {
@@ -175,11 +186,11 @@ class FunctionTypeInfo {
 class VarData
 {
   public:
-  TypeInfo *type;
+  TypeInfo *typeinfo;
   llvm::AllocaInst *allocainst;
 
-  VarData() : type(nullptr), allocainst(nullptr) {  }
-  VarData(TypeInfo *typepar, llvm::AllocaInst *allocainstpar) : type(type), allocainst(allocainstpar) {  }
+  VarData() : typeinfo(nullptr), allocainst(nullptr) {  }
+  VarData(TypeInfo *typepar, llvm::AllocaInst *allocainstpar) : typeinfo(typepar), allocainst(allocainstpar) {  }
 };
 
 class ExprRet {
@@ -187,8 +198,9 @@ class ExprRet {
   llvm::Value *_expr_value;
 
   public:
-  ExprRet (TypeInfo *type, llvm::Value *val) : _type(type), _expr_value(val) {  }
-  TypeInfo *getType() { return _type; }
+  ExprRet (TypeInfo *type, llvm::Value *val): _type(type), _expr_value(val) {  }
+  bool isLvalue() { return _type->isLvalue(); }
+  TypeInfo *getTypeInfo() { return _type; }
   llvm::Value *getValue() { return _expr_value; } 
 };
 
@@ -551,7 +563,7 @@ class ParamDeclAST : public NodeAST {
     if (_decl != nullptr) _decl->print(indent);
   }
 
-  TypeInfo* getTypeInfo() { return new TypeInfo(_specs, _decl); }
+  TypeInfo* getTypeInfo() { return new TypeInfo(_specs, _decl, true); }
   std::string getName() { return _decl->getName(); }
 };
 
