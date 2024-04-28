@@ -127,6 +127,29 @@ ExprRet* IdentifierAST::codegen()
   return new ExprRet(new TypeInfo(V.typeinfo), A);
 }
 
+static std::string convert_escapes( std::string input )
+{
+  std::string ret;
+  int i = 0;
+  while(i < input.size())
+  {
+    switch(input[i])
+    {
+      case '\"': break;
+      case '\\': 
+                 i++;
+                 if (i < input.size() && input[i] == 'n')
+                   ret.push_back('\n');
+                 break;
+      default:
+                 ret.push_back(input[i]);
+    }
+    i++;
+  }
+
+  return ret;
+}
+
 ExprRet* StrLiteralAST::codegen()
 {
   /* ArrayType *strtype = ArrayType::get(Type::getInt8Ty(*llvm_context), _str.size()); */
@@ -136,12 +159,10 @@ ExprRet* StrLiteralAST::codegen()
 
   /* globalvar->setAlignment(MaybeAlign(1)); */
 
-  // TODO: change typeinfo
   TypeInfo *ty = new TypeInfo(BaseType::char_ty);
   ty->setPtrInfo({Qualifier::const_qual});
-  return new ExprRet(ty, llvm_builder->CreateGlobalString(StringRef(_str), "str"));
+  return new ExprRet(ty, llvm_builder->CreateGlobalString(StringRef(convert_escapes(_str)), "str"));
 }
-
 
 ExprRet* UnaryExprAST::codegen() 
 {
@@ -410,14 +431,34 @@ void IfElseStmtAST::codegen()
     return;
   }
 
-  if (!CondV->getType()->isIntegerTy(1)) {
-    LogErrorV("If condition must be of type boolean");
+  if (CondRet->isLvalue())
+  {
+    CondV = llvm_builder->CreateLoad(CondRet->getTypeInfo()->getRvalLLVMType(), CondV, "rval");
+  }
+
+  if (!CondV) {
+    LogErrorV("Failed to generate code for condition");
     return;
   }
 
+  Type *cond_type = CondV->getType();
+
+  if(!cond_type->isIntegerTy(1))
+  {
+    if ( cond_type->isIntegerTy() )
+    {
+      CondV = llvm_builder->CreateICmpNE(CondV, ConstantInt::get(*llvm_context, APInt(cond_type->getIntegerBitWidth(), 0, true)), "cmptmp");
+    }
+    else
+    {
+      LogErrorV("while Condition type invalid");
+      return;
+    }
+  }
+
   Function* TheFunction = llvm_builder->GetInsertBlock()->getParent();
-  BasicBlock* ThenBB = BasicBlock::Create(*llvm_context, "then", TheFunction);
-  BasicBlock* ElseBB = BasicBlock::Create(*llvm_context, "else");
+  BasicBlock* ThenBB = BasicBlock::Create(*llvm_context, "then-branch", TheFunction);
+  BasicBlock* ElseBB = BasicBlock::Create(*llvm_context, "else-branch");
   BasicBlock* MergeBB = BasicBlock::Create(*llvm_context, "ifcont");
 
   llvm_builder->CreateCondBr(CondV, ThenBB, ElseBB);
@@ -441,12 +482,6 @@ void IfElseStmtAST::codegen()
 
   TheFunction->insert(TheFunction->end(), MergeBB);
   llvm_builder->SetInsertPoint(MergeBB);
-  /* PHINode* PN = llvm_builder->CreatePHI(Type::getVoidTy(*llvm_context), 2, "iftmp"); */
-  /* PN->addIncoming(ThenV, ThenBB); */
-  /* if (_else_statement) */
-  /* { */
-  /*     PN->addIncoming(ElseV, ElseBB); */
-  /* } */
 
   return;
 }
@@ -493,9 +528,9 @@ void GotoStmtAST::codegen()
 void WhileStmtAST::codegen()
 {
   Function *TheFunction = llvm_builder->GetInsertBlock()->getParent();
-  BasicBlock *CondBlock = BasicBlock::Create(*llvm_context, "while.cond", TheFunction);
-  BasicBlock *LoopBlock = BasicBlock::Create(*llvm_context, "while.loop");
-  BasicBlock *AfterBlock = BasicBlock::Create(*llvm_context, "while.after");
+  BasicBlock *CondBlock = BasicBlock::Create(*llvm_context, "while-cond", TheFunction);
+  BasicBlock *LoopBlock = BasicBlock::Create(*llvm_context, "while-loop");
+  BasicBlock *AfterBlock = BasicBlock::Create(*llvm_context, "while-after");
 
   llvm_builder->CreateBr(CondBlock);
 
@@ -504,9 +539,30 @@ void WhileStmtAST::codegen()
   ExprRet *CondRet = _expression->codegen();
   Value *ConditionValue = CondRet->getValue();
 
+  if (CondRet->isLvalue())
+  {
+    ConditionValue = llvm_builder->CreateLoad(CondRet->getTypeInfo()->getRvalLLVMType(), ConditionValue, "rval");
+
+  }
+
   if (!ConditionValue) {
     LogErrorV("Failed to generate code for condition");
     return;
+  }
+
+  Type *cond_type = ConditionValue->getType();
+
+  if(!cond_type->isIntegerTy(1))
+  {
+    if ( cond_type->isIntegerTy() )
+    {
+      ConditionValue = llvm_builder->CreateICmpNE(ConditionValue, ConstantInt::get(*llvm_context, APInt(cond_type->getIntegerBitWidth(), 0, true)), "cmptmp");
+    }
+    else
+    {
+      LogErrorV("while Condition type invalid");
+      return;
+    }
   }
 
   llvm_builder->CreateCondBr(ConditionValue, LoopBlock, AfterBlock);
