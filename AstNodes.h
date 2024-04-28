@@ -3,6 +3,7 @@
 #include "llvm/IR/Instructions.h"
 
 #include <string>
+#include <set>
 #include <vector>
 #include <memory>
 #include <iostream>
@@ -207,6 +208,7 @@ class ExprRet {
 
 class ExternalDeclsAST : public NodeAST {
   public:
+    virtual void localDeadCodeElim() {  };
     virtual void constantFolding() {  };
     virtual void codegen() = 0;
 };
@@ -215,6 +217,7 @@ class RootAST : public NodeAST {
   std::vector<ExternalDeclsAST*> _extern_units;    
 
   public:
+  void localDeadCodeElim();
   void constantFolding();
   void codegen();
   void insertExternalUnit(ExternalDeclsAST* unit) {
@@ -236,6 +239,7 @@ class ExprAST : public NodeAST {
   public:
   virtual ExprRet* codegen() = 0;
   virtual ExprAST* constantFolding() { return this; };
+  virtual void livenessAnalysis(std::set<std::string>& deadVariables) { cout << ""<<endl; };
 };
 
 class BlockItemAST : public NodeAST {
@@ -243,6 +247,7 @@ class BlockItemAST : public NodeAST {
   public:
     virtual void codegen() = 0;
     virtual BlockItemAST* constantFolding() { return this; };
+    virtual bool localDeadCodeElim(std::set<std::string>& deadVariables) = 0;
 };
 
 // Base class for all statements
@@ -328,6 +333,8 @@ class IdentifierAST : public ExprAST {
     printIndent(indent); 
     cout << "ID : " << _name << endl; 
   }
+
+  void livenessAnalysis(std::set<std::string>& deadVariables) override;
 };
 
 class UnaryExprAST : public ExprAST {
@@ -341,6 +348,7 @@ public:
     virtual ExprRet* codegen() override;
 
     virtual ExprAST* constantFolding();
+    void livenessAnalysis(std::set<std::string>& deadVariables);
 
     virtual void print(int indent) {
         printIndent(indent);
@@ -370,6 +378,11 @@ class BinaryExprAST : public ExprAST {
 
     right->print(indent+1);
   }
+
+  std::string getOp() { return op; }
+  ExprAST *getLeft() { return left; }
+  ExprAST *getRight() { return right; }
+  void livenessAnalysis(std::set<std::string>& deadVariables) override;
 };
 
 class ExprStmtAST : public StmtAST {
@@ -384,6 +397,7 @@ class ExprStmtAST : public StmtAST {
   }
 
   virtual StmtAST* constantFolding();
+  bool localDeadCodeElim(std::set<std::string>& deadVariables);
 
   void codegen() override;
 };
@@ -412,6 +426,7 @@ class IfElseStmtAST : public StmtAST {
   }
 
   virtual StmtAST* constantFolding();
+  bool localDeadCodeElim(std::set<std::string>& deadVariables) override;
 
   void codegen() override;
 };
@@ -440,6 +455,7 @@ class WhileStmtAST : public StmtAST {
   } 
 
   virtual StmtAST* constantFolding();
+  bool localDeadCodeElim(std::set<std::string>& deadVariables);
 
   void codegen() override;
 };
@@ -455,6 +471,9 @@ class GotoStmtAST : public StmtAST {
     cout << "GOTO\n";
     _identifier->print(indent+1);
   }
+
+
+  bool localDeadCodeElim(std::set<std::string>& deadVariables) { cout << "goto deadcode not implemented" << endl; return false; }
 
   void codegen() override;
 };
@@ -475,6 +494,7 @@ class ReturnStmtAST : public StmtAST {
 
   void codegen() override;
 
+  bool localDeadCodeElim(std::set<std::string>& deadVariables);
   StmtAST* constantFolding() override;
 };
 
@@ -494,7 +514,7 @@ class ArgListAST : public NodeAST {
   }
 
   virtual void constantFolding();
-  std::vector<ExprAST*> getArgs() { return _arg_list; }
+  std::vector<ExprAST*>& getArgs() { return _arg_list; }
   int getSize() { return _arg_list.size(); }
 }; 
 
@@ -514,9 +534,10 @@ class FunctionCallAST : public ExprAST {
   }
 
   virtual ExprAST* constantFolding();
+  void livenessAnalysis(std::set<std::string>& deadVariables);
   virtual ExprRet* codegen() override;
   int getSize() { return _argument_list->getSize(); }
-  std::vector<ExprAST*> getArgs() { return _argument_list->getArgs(); }
+  std::vector<ExprAST*>& getArgs() { return _argument_list->getArgs(); }
 };
 
 class BlockItemListAST : public StmtAST {
@@ -548,6 +569,7 @@ class BlockItemListAST : public StmtAST {
   }
 
   virtual StmtAST* constantFolding();
+  bool localDeadCodeElim(std::set<std::string>& deadVariables);
   void codegen();
 
   bool isEmpty() { cout << _items.size() ;return _items.size() == 0; }
@@ -680,6 +702,7 @@ class FunctionDefinitionAST : public ExternalDeclsAST {
 
   virtual void constantFolding();
   void codegen() override;
+  void localDeadCodeElim() override;
 
 };
 
@@ -749,6 +772,7 @@ class InitializerAST : public NodeAST {
 
   virtual ExprRet* codegen();
   void constantFolding();
+  virtual void livenessAnalysis(std::set<std::string>& deadVariables);
 };
 
 class InitializerListAST : public InitializerAST {
@@ -794,6 +818,7 @@ class InitDeclaratorAST : public NodeAST {
   void codegen(DeclSpecifiersAST *codegen);
   void globalCodegen(DeclSpecifiersAST *specs);
   void constantFolding();
+  void livenessAnalysis(std::set<std::string>& deadVariables);
 };
 
 class InitDeclaratorListAST : public NodeAST {
@@ -815,6 +840,7 @@ class InitDeclaratorListAST : public NodeAST {
   void codegen(DeclSpecifiersAST *specs);
   void globalCodegen(DeclSpecifiersAST *specs);
   void constantFolding();
+  void livenessAnalysis(std::set<std::string>& deadVariables);
 
 };
 
@@ -842,6 +868,7 @@ class NormalDeclarationAST : public DeclarationAST {
   void codegen() override;
   BlockItemAST *constantFolding() override;
   std::pair<DeclSpecifiersAST *, InitDeclaratorListAST *> claimResources();
+  bool localDeadCodeElim(std::set<std::string>& deadVariables);
 };
 
 class GlobalDeclarationAST : public ExternalDeclsAST {

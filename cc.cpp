@@ -67,6 +67,7 @@ main(int argc, char **argv)
   printf("retv = %d\n", ret);
 
   AST_root->constantFolding();
+  AST_root->localDeadCodeElim();
   dump_ast();
   codegen(filename);
 

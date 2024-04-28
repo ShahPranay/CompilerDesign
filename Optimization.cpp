@@ -2,6 +2,8 @@
 
 #include <stack>
 #include <map>
+#include <set>
+#include <string>
 #include <iostream>
 
 using std::cout, std::endl;
@@ -304,20 +306,6 @@ void FunctionDefinitionAST::constantFolding() {
     _compound_stmts = static_cast<BlockItemListAST *>(bil);
 }
 
-/*void ArrayDesignatorAST::constantFolding() {
-  ExprAST* expr = _expr->constantFolding();
-  if (expr != _expr) {
-  delete _expr;
-  _expr = expr;
-  }
-  }
-
-  void DesignatorListAST::constantFolding() {
-  for(auto designator : _designator_list) {
-  designator->constantFolding();
-  }
-  }*/
-
 void InitializerAST::constantFolding() {
   //_designation->constantFolding();
   ExprAST* assgn = _assignment_expression->constantFolding();
@@ -334,11 +322,13 @@ void InitializerListAST::constantFolding() {
 }
 
 void InitDeclaratorAST::constantFolding() {
-  _initializer->constantFolding();
+  if (_initializer)
+    _initializer->constantFolding();
 }
 
 void InitDeclaratorListAST::constantFolding() {
-  for(auto init_declarator : _init_declarators) {
+  for(auto init_declarator : _init_declarators) 
+  {
     init_declarator->constantFolding();
   }
 }
@@ -349,3 +339,163 @@ BlockItemAST *NormalDeclarationAST::constantFolding() {
 }
 
 
+void RootAST::localDeadCodeElim()
+{
+  for(auto edcl : _extern_units)
+    edcl->localDeadCodeElim();
+}
+
+void FunctionDefinitionAST::localDeadCodeElim()
+{
+  std::set<std::string> deadVariables;
+  if (_compound_stmts)
+    _compound_stmts->localDeadCodeElim(deadVariables);
+}
+
+bool BlockItemListAST::localDeadCodeElim(std::set<std::string>& deadVariables)
+{
+  deadVariables.clear();
+
+  std::vector<BlockItemAST *> tmpvec;
+  for(int i = _items.size() - 1; i >= 0; i--)
+  {
+    if (!_items[i]->localDeadCodeElim(deadVariables))
+    {
+      tmpvec.push_back(_items[i]);
+    }
+  }
+
+
+  deadVariables.clear();
+
+  if (_items.size() == tmpvec.size())
+    return false;
+
+  _items.clear();
+  for (int i = tmpvec.size() - 1; i >= 0; i--)
+  {
+    _items.push_back(tmpvec[i]);
+  }
+
+
+  return false;
+}
+
+bool ExprStmtAST::localDeadCodeElim(std::set<std::string>& deadVariables)
+{
+  bool present_before = false, present_after = false;
+  std::string name;
+  IdentifierAST *idtest;
+
+  if (!_expression)
+    return false;
+
+  BinaryExprAST *bintest = dynamic_cast<BinaryExprAST *>(_expression); 
+  if (!bintest || bintest->getOp() != "=")
+    goto notelim;
+
+  idtest = dynamic_cast<IdentifierAST *>(bintest->getLeft());
+  if (!idtest)
+    goto notelim;
+    
+  name = idtest->getName();
+
+  present_before = (deadVariables.find(name) != deadVariables.end());    
+
+
+  if (present_before)
+    return true;
+
+  deadVariables.insert(name);
+  bintest->getRight()->livenessAnalysis(deadVariables);
+  present_after = (deadVariables.find(name) != deadVariables.end());    
+
+
+  return false;
+
+notelim:
+  _expression->livenessAnalysis(deadVariables);
+  return false;
+}
+
+bool IfElseStmtAST::localDeadCodeElim(std::set<std::string>& deadVariables)
+{
+  deadVariables.clear();
+  if (_else_statement)
+    _else_statement->localDeadCodeElim(deadVariables);
+
+  deadVariables.clear();
+
+  _then_statement->localDeadCodeElim(deadVariables);
+  deadVariables.clear();
+
+  return false;
+}
+
+bool WhileStmtAST::localDeadCodeElim(std::set<std::string>& deadVariables)
+{
+  deadVariables.clear();
+  _statement->localDeadCodeElim(deadVariables);
+  deadVariables.clear();
+
+  return false;
+}
+
+bool ReturnStmtAST::localDeadCodeElim(std::set<std::string>& deadVariables)
+{
+  _expr->livenessAnalysis(deadVariables);
+  return false;
+}
+
+bool NormalDeclarationAST::localDeadCodeElim(std::set<std::string>& deadVariables)
+{
+  if (_init_decl_list)
+    _init_decl_list->livenessAnalysis(deadVariables);
+  return false;
+}
+
+void InitDeclaratorListAST::livenessAnalysis(std::set<std::string>& deadVariables)
+{
+  for (auto ptr: _init_declarators)
+  {
+    if (ptr)
+      ptr->livenessAnalysis(deadVariables);
+  }
+}
+
+void InitDeclaratorAST::livenessAnalysis(std::set<std::string>& deadVariables)
+{
+  if (_initializer)
+    _initializer->livenessAnalysis(deadVariables); 
+}
+
+void InitializerAST::livenessAnalysis(std::set<std::string>& deadVariables)
+{
+  _assignment_expression->livenessAnalysis(deadVariables);  
+}
+
+void BinaryExprAST::livenessAnalysis(std::set<std::string>& deadVariables)
+{
+  if (op != "=")
+    left->livenessAnalysis(deadVariables); 
+  right->livenessAnalysis(deadVariables);
+}
+
+void FunctionCallAST::livenessAnalysis(std::set<std::string>& deadVariables)
+{
+  for(auto ptr: getArgs())
+  {
+    ptr->livenessAnalysis(deadVariables);
+  }
+}
+
+void IdentifierAST::livenessAnalysis(std::set<std::string>& deadVariables)
+{
+  deadVariables.erase(_name);
+}
+
+void UnaryExprAST::livenessAnalysis(std::set<std::string>& deadVariables)
+{
+  if(_expr)
+    _expr->livenessAnalysis(deadVariables);
+}
