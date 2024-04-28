@@ -80,7 +80,7 @@ class PrimitiveTypeSpecAST : public TypeSpecifierAST {
 
 enum BaseType
 {
-  constant_ty, void_ty, char_ty, short_ty, int_ty, long_ty, float_ty, double_ty, signed_ty, unsigned_ty, bool_ty,
+  void_ty, char_ty, short_ty, int_ty, long_ty, float_ty, double_ty, signed_ty, unsigned_ty, bool_ty,
 };
 
 enum Qualifier
@@ -155,13 +155,13 @@ class TypeInfo {
 
   public:
   TypeInfo(DeclSpecifiersAST *declspecs, DirectDeclaratorAST *ddecl, bool islvalue);
-  TypeInfo(BaseType bt, Qualifier bql = Qualifier::no_qual) : _basetype(bt), _basequalifier(bql) {  }
-  TypeInfo() : _basetype(BaseType::constant_ty), _basequalifier(Qualifier::no_qual), _isLvalue(false) {  }
+  TypeInfo(BaseType bt, Qualifier bql = Qualifier::no_qual) : _basetype(bt), _basequalifier(bql), _isLvalue(false) {  }
   TypeInfo(TypeInfo *ty, bool isDeref = false); // deep copy
 
   bool iscompatible(TypeInfo *other);
   bool isLvalue() { return _isLvalue; }
   void setToRval() { _isLvalue = false; }
+  void setToLval() { _isLvalue = true; }
   void setPtrInfo(std::vector<Qualifier> qualvec) { _ptrinfo = qualvec; }
 
   BaseType getBaseType() { return _basetype; }
@@ -541,9 +541,6 @@ class BlockItemListAST : public StmtAST {
   virtual StmtAST* constantFolding();
   void codegen();
 };
-
-
-
 
 class ParamDeclAST : public NodeAST {
   DeclSpecifiersAST* _specs;

@@ -53,17 +53,17 @@ static AllocaInst *CreateEntryBlockAlloca(Function *F, StringRef var_name, Type 
 }
 
 ExprRet* BooleanExprAST::codegen() {
-  TypeInfo *ty = new TypeInfo();
+  TypeInfo *ty = new TypeInfo(BaseType::bool_ty);
   return new ExprRet(ty, ConstantInt::get(*llvm_context, APInt(1, _val ? 1 : 0)));
 }
 
 ExprRet* IntegerExprAST::codegen() {
-  TypeInfo *ty = new TypeInfo();
+  TypeInfo *ty = new TypeInfo(BaseType::int_ty);
   return new ExprRet(ty, ConstantInt::get(*llvm_context, APInt(32, _val, true)));
 }
 
 ExprRet* DoubleExprAST::codegen() {
-  TypeInfo *ty = new TypeInfo();
+  TypeInfo *ty = new TypeInfo(BaseType::double_ty);
   return new ExprRet(ty, ConstantFP::get(*llvm_context, APFloat(_val)));
 }
 
@@ -242,7 +242,6 @@ ExprRet* UnaryExprAST::codegen()
 
 ExprRet* BinaryExprAST::codegen() 
 {
-  /* cout << "Binary op = " << op << endl; */
   ExprRet *lret, *rret;
   Value *L, *R, *retvalue = nullptr;
 
@@ -275,11 +274,9 @@ ExprRet* BinaryExprAST::codegen()
       rret->getTypeInfo()->setToRval();
     }
 
-    /* cout << "before store" << endl; */
 
     llvm_builder->CreateStore(R, L);
 
-    /* cout << "after store" << endl; */
     return rret;
   }
 
@@ -288,6 +285,7 @@ ExprRet* BinaryExprAST::codegen()
     Type *rtype = lret->getTypeInfo()->getRvalLLVMType();
     L = llvm_builder->CreateLoad(rtype, L, "rval");
   }
+
   if (rret->isLvalue())
   {
     R = llvm_builder->CreateLoad(rret->getTypeInfo()->getRvalLLVMType(), R, "rval");
@@ -549,8 +547,15 @@ ExprRet* FunctionCallAST::codegen() {
   if (_argument_list) {
     for (auto &arg : _argument_list->getArgs()) {
       ExprRet *tmpret = arg->codegen();
+      Value *argval = tmpret->getValue();
+
+      TypeInfo *tyi = tmpret->getTypeInfo();
+      if (tyi->isLvalue())
+      {
+        argval = llvm_builder->CreateLoad(tyi->getRvalLLVMType(), argval, "rval");
+      }
       // check type
-      ArgsV.push_back(tmpret->getValue());
+      ArgsV.push_back(argval);
 
       if (!ArgsV.back()) {
         return nullptr;
@@ -586,7 +591,7 @@ void BlockItemListAST::codegen()
 BaseType DeclSpecifiersAST::getBaseType()
 {
   PrimitiveTypeSpecAST* prim_spec = nullptr;
-  BaseType bt = constant_ty;
+  BaseType bt = void_ty;
   Qualifier ql = no_qual;
 
   for (auto ptr: _decl_specs)
@@ -636,9 +641,7 @@ Type *TypeInfo::getRvalLLVMType()
 
   Type* llvm_type = nullptr;
 
-  if (_basetype == BaseType::constant_ty ) {
-    llvm_type = Type::getInt32Ty(*llvm_context);
-  } else if (_basetype == BaseType::void_ty ) {
+  if (_basetype == BaseType::void_ty ) {
     llvm_type = Type::getVoidTy(*llvm_context);
   } else if (_basetype == BaseType::char_ty ) {
     llvm_type = Type::getInt8Ty(*llvm_context);
@@ -703,7 +706,7 @@ std::vector<Type*> FunctionTypeInfo::getLLVMParamTypes()
   std::vector<Type*> ret;
   for (auto ty: _paramTypes)
   {
-    ret.push_back(ty->getRvalLLVMType());
+    ret.push_back(ty->getLLVMType());
   }
   return ret;
 }
@@ -740,7 +743,11 @@ void FunctionDefinitionAST::codegen()
   {
     AllocaInst *Alloca = CreateEntryBlockAlloca(F, arg.getName(), arg.getType());
     llvm_builder->CreateStore(&arg, Alloca);
-    nested_symbols[0][std::string(arg.getName())] = VarData(param_typeinfos[id++], Alloca);
+
+    TypeInfo *local_tyi = new TypeInfo(param_typeinfos[id++]);
+    local_tyi->setToLval();
+
+    nested_symbols[0][std::string(arg.getName())] = VarData(local_tyi, Alloca);
   }
 
   // body codgen
@@ -788,7 +795,6 @@ void NormalDeclarationAST::codegen()
 
 void GlobalDeclarationAST::codegen()
 {
-  cout << "inside global decl" << endl;
   _init_decl_list->globalCodegen(_specs); 
 }
 
@@ -822,6 +828,8 @@ ExprRet *InitializerListAST::codegen()
 void InitDeclaratorAST::globalCodegen(DeclSpecifiersAST *specs)
 {
   _direct_decl->globalCodegen(specs);
+  if (!_initializer)
+    return;
 }
 
 void InitDeclaratorAST::codegen(DeclSpecifiersAST *specs)
@@ -881,7 +889,6 @@ void FunctionDeclaratorAST::globalCodegen(DeclSpecifiersAST *specs)
   {
     Arg.setName(param_names[i++]);
   }
-  cout << "declared function" << funcname << endl;
 }
 
 void FunctionDeclaratorAST::codegen(DeclSpecifiersAST *specs)
